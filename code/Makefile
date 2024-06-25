@@ -9,8 +9,8 @@ image: image.cpp
 %: %.cpp
 	g++ $< -o image
 
+format: 
+	find . -name '*.cpp' -o -name '*.h' | xargs clang-format -i
+
 clean: 
 	rm -f image
-
-format: 
-	clang-format -i *.cpp *.h

@@ -23,10 +23,7 @@ void changeVibrance(double change, double sat);
 void adaptiveVibrance(double change, int window);
 void getColor();
 void NearestNeighborInterpolation();
-
-// 0.1 to 3
-void Sharpen(double change);
-
+void sharpen(double change);
 void changeSaturation(double change);
 void RGB_2HSV_2RGB(double change);
 
@@ -111,7 +108,6 @@ unsigned short int gamma_value[1024] = {
     252, 252, 252, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253,
     254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 255, 255, 255,
     255, 255, 255, 255};
-
 
 void adjustContrast(double contrast) {
   int i, j;
@@ -1249,134 +1245,135 @@ void RGB_2HSV_2RGB(double change) {
 }
 
 void RGBtoHSV(int r, int g, int b, double &h, double &s, double &v) {
-    int themin, themax, delta;
-    themin = std::min({r, g, b});
-    themax = std::max({r, g, b});
-    delta = themax - themin;
+  int themin, themax, delta;
+  themin = std::min({r, g, b});
+  themax = std::max({r, g, b});
+  delta = themax - themin;
 
-    v = themax / 255.0;
-    s = (themax == 0) ? 0 : (double)delta / themax;
+  v = themax / 255.0;
+  s = (themax == 0) ? 0 : (double)delta / themax;
 
-    if (s == 0)
-        h = 0;
-    else {
-        if (r == themax)
-            h = (g - b) / (double)delta;
-        else if (g == themax)
-            h = 2 + (b - r) / (double)delta;
-        else
-            h = 4 + (r - g) / (double)delta;
+  if (s == 0)
+    h = 0;
+  else {
+    if (r == themax)
+      h = (g - b) / (double)delta;
+    else if (g == themax)
+      h = 2 + (b - r) / (double)delta;
+    else
+      h = 4 + (r - g) / (double)delta;
 
-        h *= 60;
-        if (h < 0)
-            h += 360;
-    }
+    h *= 60;
+    if (h < 0)
+      h += 360;
+  }
 }
 
 void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
-    int i;
-    double f, p, q, t;
+  int i;
+  double f, p, q, t;
 
-    if (s == 0) {
-        r = g = b = round(v * 255);
-        return;
-    }
+  if (s == 0) {
+    r = g = b = round(v * 255);
+    return;
+  }
 
-    h /= 60;
-    i = floor(h);
-    f = h - i;
-    p = v * (1 - s);
-    q = v * (1 - s * f);
-    t = v * (1 - s * (1 - f));
+  h /= 60;
+  i = floor(h);
+  f = h - i;
+  p = v * (1 - s);
+  q = v * (1 - s * f);
+  t = v * (1 - s * (1 - f));
 
-    switch (i) {
-    case 0:
-        r = round(v * 255);
-        g = round(t * 255);
-        b = round(p * 255);
-        break;
-    case 1:
-        r = round(q * 255);
-        g = round(v * 255);
-        b = round(p * 255);
-        break;
-    case 2:
-        r = round(p * 255);
-        g = round(v * 255);
-        b = round(t * 255);
-        break;
-    case 3:
-        r = round(p * 255);
-        g = round(q * 255);
-        b = round(v * 255);
-        break;
-    case 4:
-        r = round(t * 255);
-        g = round(p * 255);
-        b = round(v * 255);
-        break;
-    default:
-        r = round(v * 255);
-        g = round(p * 255);
-        b = round(q * 255);
-        break;
-    }
+  switch (i) {
+  case 0:
+    r = round(v * 255);
+    g = round(t * 255);
+    b = round(p * 255);
+    break;
+  case 1:
+    r = round(q * 255);
+    g = round(v * 255);
+    b = round(p * 255);
+    break;
+  case 2:
+    r = round(p * 255);
+    g = round(v * 255);
+    b = round(t * 255);
+    break;
+  case 3:
+    r = round(p * 255);
+    g = round(q * 255);
+    b = round(v * 255);
+    break;
+  case 4:
+    r = round(t * 255);
+    g = round(p * 255);
+    b = round(v * 255);
+    break;
+  default:
+    r = round(v * 255);
+    g = round(p * 255);
+    b = round(q * 255);
+    break;
+  }
 }
+
 void changeVibrance(double vibrance_factor, double saturation_threshold = 0.2) {
-    vibrance_factor *= -1;  // Invert vibrance factor
+  vibrance_factor *= -1; // Invert vibrance factor
 
-    for (int i = 1; i < 2459; i++) {  // Height
-        for (int j = 1; j < 3359; j++) {  // Width
-            double h, s, v;
-            RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
+  for (int i = 1; i < 2459; i++) {   // Height
+    for (int j = 1; j < 3359; j++) { // Width
+      double h, s, v;
+      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
 
-            // Selective saturation adjustment
-            if (s > saturation_threshold) {
-                s = std::min(1.0, s + (vibrance_factor * s));
-            }
+      // Selective saturation adjustment
+      if (s > saturation_threshold) {
+        s = std::min(1.0, s + (vibrance_factor * s));
+      }
 
-            HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
-        }
+      HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
     }
+  }
 }
 
 void adaptiveVibrance(double vibrance_factor, int window_size = 3) {
-    vibrance_factor *= -1;  // Invert vibrance factor
+  vibrance_factor *= -1; // Invert vibrance factor
 
-    for (int i = 1; i < 2459; i++) {  // Height
-        for (int j = 1; j < 3359; j++) {  // Width
-            double h, s, v;
-            RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
+  for (int i = 1; i < 2459; i++) {   // Height
+    for (int j = 1; j < 3359; j++) { // Width
+      double h, s, v;
+      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
 
-            // Calculate local average saturation
-            double local_avg_saturation = 0.0;
-            int count = 0;
-            for (int k = -window_size / 2; k <= window_size / 2; k++) {
-                for (int l = -window_size / 2; l <= window_size / 2; l++) {
-                    if (i + k >= 0 && i + k < 2459 && j + l >= 0 && j + l < 3359) {
-                        double h_neighbor, s_neighbor, v_neighbor;
-                        RGBtoHSV(r[i + k][j + l], g[i + k][j + l], b[i + k][j + l], h_neighbor, s_neighbor, v_neighbor);
-                        local_avg_saturation += s_neighbor;
-                        count++;
-                    }
-                }
-            }
-            local_avg_saturation /= count;
-
-            // Adjust saturation based on local average
-            if (s > local_avg_saturation) {
-                s = std::max(0.0, s + (vibrance_factor * (s - local_avg_saturation)));
-            } else {
-                s = std::min(1.0, s + (vibrance_factor * (s - local_avg_saturation)));
-            }
-
-            HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
+      // Calculate local average saturation
+      double local_avg_saturation = 0.0;
+      int count = 0;
+      for (int k = -window_size / 2; k <= window_size / 2; k++) {
+        for (int l = -window_size / 2; l <= window_size / 2; l++) {
+          if (i + k >= 0 && i + k < 2459 && j + l >= 0 && j + l < 3359) {
+            double h_neighbor, s_neighbor, v_neighbor;
+            RGBtoHSV(r[i + k][j + l], g[i + k][j + l], b[i + k][j + l],
+                     h_neighbor, s_neighbor, v_neighbor);
+            local_avg_saturation += s_neighbor;
+            count++;
+          }
         }
+      }
+      local_avg_saturation /= count;
+
+      // Adjust saturation based on local average
+      if (s > local_avg_saturation) {
+        s = std::max(0.0, s + (vibrance_factor * (s - local_avg_saturation)));
+      } else {
+        s = std::min(1.0, s + (vibrance_factor * (s - local_avg_saturation)));
+      }
+
+      HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
     }
+  }
 }
 
-
-void Sharpen(double factor) {
+void sharpen(double factor) {
   int width = 3360;
   int height = 2460;
   int kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
@@ -1427,7 +1424,7 @@ void Sharpen(double factor) {
   delete[] temp_g;
   delete[] temp_b;
 
-  printf("Sharpen ---OK!\n");
+  printf("sharpen ---OK!\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -1449,10 +1446,10 @@ int main(int argc, char *argv[]) {
     WB();
 
     getColor();
-    //color_interpolation();
+    // color_interpolation();
     NearestNeighborInterpolation();
 
-    //colormatrix();
+    // colormatrix();
     apply_gamma(1);
     edge_enhance();
 
@@ -1460,8 +1457,8 @@ int main(int argc, char *argv[]) {
     RGB_2HSV_2RGB(1.3);
     adjustContrast(1.1);
     changeVibrance(-0.7, 0.2);
-    //adaptiveVibrance(-1, 3);
-    //Sharpen(1.2);
+    // adaptiveVibrance(-1, 3);
+    // sharpen(1.2);
 
     rgb2bmp(argv[k]);
   }

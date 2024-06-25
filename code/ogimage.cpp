@@ -120,9 +120,9 @@ int main(int argc, char *argv[]) {
 
     getColor();
     // color_interpolation();
-    //NearestNeighborInterpolation();
+    // NearestNeighborInterpolation();
 
-    //colormatrix();
+    // colormatrix();
     apply_gamma(1);
     edge_enhance();
 

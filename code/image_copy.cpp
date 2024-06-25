@@ -1357,8 +1357,8 @@ int main(int argc, char *argv[]) {
     changeSaturation(1.3);
     RGB_2HSV_2RGB(1.3);
     adjustContrast(1.1);
-    //changeVibrance(1.1);
-    // Sharpen(1.3);
+    // changeVibrance(1.1);
+    //  Sharpen(1.3);
 
     rgb2bmp(argv[k]);
   }
