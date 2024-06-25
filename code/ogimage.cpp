@@ -1,15 +1,9 @@
-#include <algorithm>
-#include <cmath>
-#include <iostream>
 #include <math.h>
-#include <set>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <utility>
-#include <vector>
 
-int pic[2460][3360];
+int pic[2460][3360]; // Height x Width
 void OB();
 void WB();
 void color_interpolation();
@@ -19,20 +13,14 @@ void color();
 void edge_enhance();
 void rgb2bmp(char *);
 
-void changeVibrance(double change, double sat);
-void adaptiveVibrance(double change, int window);
 void getColor();
 void NearestNeighborInterpolation();
-
-// 0.1 to 3
-void Sharpen(double change);
 
 void changeSaturation(double change);
 void RGB_2HSV_2RGB(double change);
 
 void CFA_to_krkb();
 int truncate(double value);
-
 void adjustContrast(double contrast);
 int r[2460][3360];
 int g[2460][3360];
@@ -112,6 +100,40 @@ unsigned short int gamma_value[1024] = {
     254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 255, 255, 255,
     255, 255, 255, 255};
 
+int main(int argc, char *argv[]) {
+  for (int k = 1; k < argc; k++) {
+    FILE *fp;
+    fp = fopen(argv[k], "rb"); // Open file
+    fseek(fp, 862144, SEEK_SET);
+
+    for (int i = 0; i < 2460; i++) {
+      for (int j = 0; j < 3360; j++) {
+        pic[i][j] = 0;
+        fread(pic[i] + j, 1, 1, fp);
+        pic[i][j] <<= 8;
+        fread(pic[i] + j, 1, 1, fp);
+      }
+    }
+    fclose(fp); // Close file
+    OB();
+    WB();
+
+    getColor();
+    // color_interpolation();
+    //NearestNeighborInterpolation();
+
+    //colormatrix();
+    apply_gamma(1);
+    edge_enhance();
+
+    changeSaturation(1.3);
+    RGB_2HSV_2RGB(1.3);
+
+    rgb2bmp(argv[k]);
+  }
+
+  return 0;
+}
 
 void adjustContrast(double contrast) {
   int i, j;
@@ -575,6 +597,7 @@ void color_interpolation() {
 } // color_interpolation() end
 
 void colormatrix() {
+
   //	[R']=[ 1+sa+sb   -sa       -sb     ][R]
   //	[G']=[ -sc       1+sc+sd   -sd     ][G]
   //	[B']=[ -se       -sf       1+se+sf ][B]
@@ -791,6 +814,7 @@ void rgb2bmp(char *name) {
 } // rgb2bmp() end
 
 void CFA_to_krkb() {
+
   printf("start get color interpolation\n");
 
   // init color => bilinear
@@ -1043,6 +1067,7 @@ void getColor() {
 
 void NearestNeighborInterpolation() {
   int i, j;
+  // ���U
   for (i = 1; i < 2459; i = i + 2) // Height
   {
     for (j = 2; j < 3359; j = j + 2) // Width
@@ -1246,225 +1271,4 @@ void RGB_2HSV_2RGB(double change) {
       b[i][j] = (1 - s + s * b[i][j]) * v;
     }
   }
-}
-
-void RGBtoHSV(int r, int g, int b, double &h, double &s, double &v) {
-    int themin, themax, delta;
-    themin = std::min({r, g, b});
-    themax = std::max({r, g, b});
-    delta = themax - themin;
-
-    v = themax / 255.0;
-    s = (themax == 0) ? 0 : (double)delta / themax;
-
-    if (s == 0)
-        h = 0;
-    else {
-        if (r == themax)
-            h = (g - b) / (double)delta;
-        else if (g == themax)
-            h = 2 + (b - r) / (double)delta;
-        else
-            h = 4 + (r - g) / (double)delta;
-
-        h *= 60;
-        if (h < 0)
-            h += 360;
-    }
-}
-
-void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
-    int i;
-    double f, p, q, t;
-
-    if (s == 0) {
-        r = g = b = round(v * 255);
-        return;
-    }
-
-    h /= 60;
-    i = floor(h);
-    f = h - i;
-    p = v * (1 - s);
-    q = v * (1 - s * f);
-    t = v * (1 - s * (1 - f));
-
-    switch (i) {
-    case 0:
-        r = round(v * 255);
-        g = round(t * 255);
-        b = round(p * 255);
-        break;
-    case 1:
-        r = round(q * 255);
-        g = round(v * 255);
-        b = round(p * 255);
-        break;
-    case 2:
-        r = round(p * 255);
-        g = round(v * 255);
-        b = round(t * 255);
-        break;
-    case 3:
-        r = round(p * 255);
-        g = round(q * 255);
-        b = round(v * 255);
-        break;
-    case 4:
-        r = round(t * 255);
-        g = round(p * 255);
-        b = round(v * 255);
-        break;
-    default:
-        r = round(v * 255);
-        g = round(p * 255);
-        b = round(q * 255);
-        break;
-    }
-}
-void changeVibrance(double vibrance_factor, double saturation_threshold = 0.2) {
-    vibrance_factor *= -1;  // Invert vibrance factor
-
-    for (int i = 1; i < 2459; i++) {  // Height
-        for (int j = 1; j < 3359; j++) {  // Width
-            double h, s, v;
-            RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
-
-            // Selective saturation adjustment
-            if (s > saturation_threshold) {
-                s = std::min(1.0, s + (vibrance_factor * s));
-            }
-
-            HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
-        }
-    }
-}
-
-void adaptiveVibrance(double vibrance_factor, int window_size = 3) {
-    vibrance_factor *= -1;  // Invert vibrance factor
-
-    for (int i = 1; i < 2459; i++) {  // Height
-        for (int j = 1; j < 3359; j++) {  // Width
-            double h, s, v;
-            RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
-
-            // Calculate local average saturation
-            double local_avg_saturation = 0.0;
-            int count = 0;
-            for (int k = -window_size / 2; k <= window_size / 2; k++) {
-                for (int l = -window_size / 2; l <= window_size / 2; l++) {
-                    if (i + k >= 0 && i + k < 2459 && j + l >= 0 && j + l < 3359) {
-                        double h_neighbor, s_neighbor, v_neighbor;
-                        RGBtoHSV(r[i + k][j + l], g[i + k][j + l], b[i + k][j + l], h_neighbor, s_neighbor, v_neighbor);
-                        local_avg_saturation += s_neighbor;
-                        count++;
-                    }
-                }
-            }
-            local_avg_saturation /= count;
-
-            // Adjust saturation based on local average
-            if (s > local_avg_saturation) {
-                s = std::max(0.0, s + (vibrance_factor * (s - local_avg_saturation)));
-            } else {
-                s = std::min(1.0, s + (vibrance_factor * (s - local_avg_saturation)));
-            }
-
-            HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
-        }
-    }
-}
-
-
-void Sharpen(double factor) {
-  int width = 3360;
-  int height = 2460;
-  int kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
-
-  int **temp_r = new int *[height];
-  int **temp_g = new int *[height];
-  int **temp_b = new int *[height];
-  for (int i = 0; i < height; ++i) {
-    temp_r[i] = new int[width];
-    temp_g[i] = new int[width];
-    temp_b[i] = new int[width];
-  }
-  for (int y = 1; y < height - 1; ++y) {
-    for (int x = 1; x < width - 1; ++x) {
-      int sumR = 0, sumG = 0, sumB = 0;
-      for (int ky = -1; ky <= 1; ++ky) {
-        for (int kx = -1; kx <= 1; ++kx) {
-          int pixelR = r[y + ky][x + kx];
-          int pixelG = g[y + ky][x + kx];
-          int pixelB = b[y + ky][x + kx];
-          sumR += pixelR * kernel[ky + 1][kx + 1];
-          sumG += pixelG * kernel[ky + 1][kx + 1];
-          sumB += pixelB * kernel[ky + 1][kx + 1];
-        }
-      }
-      temp_r[y][x] =
-          std::min(std::max(int(r[y][x] + factor * (sumR - r[y][x])), 0), 255);
-      temp_g[y][x] =
-          std::min(std::max(int(g[y][x] + factor * (sumG - g[y][x])), 0), 255);
-      temp_b[y][x] =
-          std::min(std::max(int(b[y][x] + factor * (sumB - b[y][x])), 0), 255);
-    }
-  }
-  for (int y = 1; y < height - 1; ++y) {
-    for (int x = 1; x < width - 1; ++x) {
-      r[y][x] = temp_r[y][x];
-      g[y][x] = temp_g[y][x];
-      b[y][x] = temp_b[y][x];
-    }
-  }
-
-  for (int i = 0; i < height; ++i) {
-    delete[] temp_r[i];
-    delete[] temp_g[i];
-    delete[] temp_b[i];
-  }
-  delete[] temp_r;
-  delete[] temp_g;
-  delete[] temp_b;
-
-  printf("Sharpen ---OK!\n");
-}
-
-int main(int argc, char *argv[]) {
-  for (int k = 1; k < argc; k++) {
-    FILE *fp;
-    fp = fopen(argv[k], "rb"); // Open file
-    fseek(fp, 862144, SEEK_SET);
-
-    for (int i = 0; i < 2460; i++) {
-      for (int j = 0; j < 3360; j++) {
-        pic[i][j] = 0;
-        fread(pic[i] + j, 1, 1, fp);
-        pic[i][j] <<= 8;
-        fread(pic[i] + j, 1, 1, fp);
-      }
-    }
-    fclose(fp); // Close file
-    OB();
-    WB();
-
-    getColor();
-    //color_interpolation();
-    NearestNeighborInterpolation();
-
-    //colormatrix();
-    apply_gamma(1);
-    edge_enhance();
-
-    changeSaturation(1.1);
-    RGB_2HSV_2RGB(1.3);
-    adjustContrast(1.1);
-    changeVibrance(-0.7, 0.2);
-    //adaptiveVibrance(-1, 3);
-    //Sharpen(1.2);
-
-    rgb2bmp(argv[k]);
-  }
-
-  return 0;
 }
