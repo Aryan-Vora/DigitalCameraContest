@@ -132,8 +132,9 @@ def show_images(raw_image, processed_image):
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    file_path = r"C:\Users\IDF\OneDrive\taw\code\subject\1.SRF"
-    output_path = r"C:\Users\IDF\OneDrive\taw\code\subject\processed_image.jpg"
+    file_path = r"/home/aryan/DigitalCameraContest/1/SRF/DSC00475.SRF"
+    output_path = r"/home/aryan/DigitalCameraContest/1/processed.jpg"
+
 
     # Open and read raw image data
     raw_image, ob_value = open_and_read_raw(file_path)

@@ -231,37 +231,17 @@ void bilateralSmoothing(int kernel_size)
 					intensity_kernel[ii][jj] /= total;
 				}
 			}
-			/*
-			for (int ii =0;ii<kernel_size;ii++)
-			{
-				for(int jj=0;jj<kernel_size;jj++)
-				{
-					printf("%f ", intensity_kernel[ii][jj]);
-				}
-				printf("\n");
-			}
-			printf("\n");
-			*/			
-
-			//std::cout << "Calculated radiometric" << std::endl;
-			// Brute force matrix multiplication
-			std::vector<std::vector<float>> final_kernel(kernel_size, std::vector<float>(kernel_size));
-			float total_kernel = 0;
-			for (int ii=0;ii<kernel_size;ii++)
-			{
-				for(int jj=0;jj<kernel_size;jj++)
-				{
-					final_kernel[ii][jj] = 0;
-					for (int kk=0;kk<kernel_size;kk++)
-					{
-						float val = kernel[ii][kk] * intensity_kernel[kk][jj];
-						final_kernel[ii][jj] += val;
-						total_kernel += val;
-					}
-				}
-			}
-
-			//std::cout << "Mutiplied kernel" << std::endl;
+    std::vector<std::vector<float>> final_kernel(kernel_size, std::vector<float>(kernel_size, 0));
+    float total_kernel = 0;
+    for (int ii = 0; ii < kernel_size; ii++) {
+    for (int jj = 0; jj < kernel_size; jj++) {
+      for (int kk = 0; kk < kernel_size; kk++) {
+        float val = kernel[ii][kk] * intensity_kernel[kk][jj];
+        final_kernel[ii][jj] += val;
+      }
+      total_kernel += final_kernel[ii][jj];
+    }
+    }
 			// Normalize kernel
 			for(int ii=0;ii<kernel_size;ii++)
 			{
@@ -302,8 +282,6 @@ void bilateralSmoothing(int kernel_size)
 			e[i][j] = new_e[i][j];
 		}
 	}
-	
-	
 }
 void OB() {
   int ob_sum = 0;
@@ -694,7 +672,6 @@ void WB() {
   printf("White balance ---OK!\n");
 
 } // WB() end
-
 void color_interpolation() {
   int i, j;
 
@@ -702,10 +679,9 @@ void color_interpolation() {
   for (i = 0; i < HEIGHT; i = i + 2) {
     for (j = 5; j < 3293; j = j + 2) {
       r[i][j] = pic[i][j];
-      g[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
-      b[i][j] = (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] +
-                 pic[i + 1][j + 1]) /
-                4;
+      g[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2 : pic[i][j];
+      b[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292) ? 
+                (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] + pic[i + 1][j + 1]) / 4 : pic[i][j];
     }
   }
 
@@ -713,19 +689,18 @@ void color_interpolation() {
   for (i = 1; i < HEIGHT; i = i + 2) {
     for (j = 5; j < 3293; j = j + 2) {
       g[i][j] = pic[i][j];
-      r[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
-      b[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
+      r[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2 : pic[i][j];
+      b[i][j] = (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
     }
   }
 
   // E region
   for (i = 0; i < HEIGHT; i = i + 2) {
     for (j = 6; j < 3293; j = j + 2) {
-      b[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
-      g[i][j] = (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] +
-                 pic[i + 1][j + 1]) /
-                4;
-      r[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
+      b[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2 : pic[i][j];
+      g[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292) ? 
+                (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] + pic[i + 1][j + 1]) / 4 : pic[i][j];
+      r[i][j] = (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
     }
   }
 
@@ -733,17 +708,15 @@ void color_interpolation() {
   for (i = 1; i < HEIGHT; i = i + 2) {
     for (j = 6; j < 3293; j = j + 2) {
       b[i][j] = pic[i][j];
-      r[i][j] = (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] +
-                 pic[i + 1][j + 1]) /
-                4;
-      g[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
+      r[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292) ? 
+                (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] + pic[i + 1][j + 1]) / 4 : pic[i][j];
+      g[i][j] = (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
     }
   }
 
   printf("Color interpolation ---OK!\n");
 
 } // color_interpolation() end
-
 void colormatrix() {
   //	[R']=[ 1+sa+sb   -sa       -sb     ][R]
   //	[G']=[ -sc       1+sc+sd   -sd     ][G]
@@ -1493,6 +1466,7 @@ void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
   }
 }
 
+//good
 void changeVibrance(double vibrance_factor, double saturation_threshold = 0.2) {
 
   for (int i = 1; i < 2459; i++) {   // Height
@@ -1510,6 +1484,7 @@ void changeVibrance(double vibrance_factor, double saturation_threshold = 0.2) {
   }
 }
 
+//does not work
 void adaptiveVibrance(double vibrance_factor, int window_size = 3) {
 
   for (int i = 1; i < 2459; i++) {   // Height
@@ -1545,6 +1520,7 @@ void adaptiveVibrance(double vibrance_factor, int window_size = 3) {
   }
 }
 
+//artifact manufacturer
 void sharpen(double factor) {
   int width = WIDTH;
   int height = HEIGHT;
@@ -1642,6 +1618,7 @@ void findClosestColor(int r, int g, int b, int* closestR, int* closestG, int* cl
     }
 }
 
+//doesnt work because rgb doesnt work this way but it is a good idea so i will keep it
 void colorCorrection(double change) {
     int i, j;
     for (i = 0; i < 2459; i++) { // Height
@@ -1658,6 +1635,7 @@ void colorCorrection(double change) {
     printf("colorCorrection --- OK!\n");
 }
 
+//Terrible function dont use
 void colorEnhance(int increment){
   //find the highest r g or b value and increase it by increment and then decrease the others by the same amount
   int i, j;
@@ -1701,19 +1679,20 @@ int main(int argc, char *argv[]) {
     OB();
     WB();
 
-    // colormatrix();
+    colormatrix();
 
-    //color_interpolation();
-    // NearestNeighborInterpolation();
+    color_interpolation();
+    NearestNeighborInterpolation();
     getColor();
 
     apply_gamma(1.1);
-    //edge_enhance();
-    // bilateralSmoothing(3.0);
+    // edge_enhance();
+    bilateralSmoothing(3.0);
 
     changeSaturation(1.1);
     changeVibrance(0.4, 0.3);
-    // adjustContrast(1.2);
+    // adaptiveVibrance(0.4, 3);
+    adjustContrast(0.8);
     // sharpen(0.1);
     rgb2bmp(argv[k]);
   }
