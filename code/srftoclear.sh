@@ -12,8 +12,8 @@ fi
 # Call ./sony_clear.exe for each .SRF file in the provided directory
 for file in "$1"/SRF/*.SRF
 do
-    ./sony_clear.exe "$file"
     echo "Processing $file"
+    ./sony_clear.exe "$file"
 done
 
 #move all clear files to the clear directory
