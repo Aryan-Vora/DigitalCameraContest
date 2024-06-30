@@ -6,10 +6,9 @@ then
   echo "Please provide a directory."
   exit 1
 fi
-
+make
 # Create the bmp directory if it doesn't exist
 mkdir -p $1/bmp
-
 # Call ./image for each file in the clear directory
 for file in $1/clear/*.clear
 do

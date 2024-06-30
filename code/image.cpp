@@ -13,28 +13,33 @@
 #define HEIGHT 2460
 
 int pic[HEIGHT][WIDTH];
+void rgb2bmp(char *);
+void RGB_2HSV_2RGB(double change);
+void RGBtoHSV(int r, int g, int b, double *h, double *s, double *v);
+void HSVtoRGB(double h, double s, double v, int *r, int *g, int *b);
+
 void OB();
 void WB();
+
 void color_interpolation();
+void NearestNeighborInterpolation();
+void CFA_to_krkb();
 void colormatrix();
+void colorCorrection(double change);
+
 void apply_gamma(double);
 void color();
-void edge_enhance();
-void rgb2bmp(char *);
-
-void changeVibrance(double change, double sat);
-void adaptiveVibrance(double change, int window);
 void getColor();
-void NearestNeighborInterpolation();
+
+void edge_enhance();
+void changeVibrance(double change, double sat);
 void sharpen(double change);
 void changeSaturation(double change);
-void RGB_2HSV_2RGB(double change);
-void colorCorrection(double change);
 void colorEnhance(int increment);
-void CFA_to_krkb();
 int truncate(double value);
-
 void adjustContrast(double contrast);
+void bilateralSmoothing(int kernel_size);
+
 int r[HEIGHT][WIDTH];
 int g[HEIGHT][WIDTH];
 int b[HEIGHT][WIDTH];
@@ -47,7 +52,32 @@ int new_e[HEIGHT][WIDTH];
 int e[HEIGHT][WIDTH];
 int kr[HEIGHT][WIDTH];
 int kb[HEIGHT][WIDTH];
-
+const int idealColors[24][3] = {
+    {115, 82, 68},    // Dark skin
+    {194, 150, 130},  // Light skin
+    {98, 122, 157},   // Blue sky
+    {87, 108, 67},    // Foliage
+    {133, 128, 177},  // Blue flower
+    {103, 189, 170},  // Bluish green
+    {214, 126, 44},   // Orange
+    {80, 91, 166},    // Purplish blue
+    {193, 90, 99},    // Moderate red
+    {94, 60, 108},    // Purple
+    {157, 188, 64},   // Yellow green
+    {230, 162, 39},   // Orange yellow
+    {35, 63, 147},    // Blue
+    {67, 149, 74},    // Green
+    {180, 49, 57},    // Red
+    {238, 198, 21},   // Yellow
+    {188, 86, 146},   // Magenta
+    {0, 136, 170},    // Cyan
+    {243, 243, 243},  // White
+    {200, 200, 200},  // Neutral 8
+    {160, 160, 160},  // Neutral 6.5
+    {122, 122, 121},  // Neutral 5
+    {85, 85, 85},     // Neutral 3.5
+    {52, 52, 52}      // Black
+};
 unsigned short int gamma_value[1024] = {
     0,   1,   3,   5,   8,   9,   11,  12,  13,  14,  16,  17,  18,  20,  21,
     22,  24,  25,  26,  28,  29,  30,  32,  33,  34,  36,  37,  38,  39,  41,
@@ -118,7 +148,6 @@ unsigned short int gamma_value[1024] = {
     252, 252, 252, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253,
     254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 255, 255, 255,
     255, 255, 255, 255};
-
 void adjustContrast(double contrast) {
   int i, j;
   double factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
@@ -132,7 +161,6 @@ void adjustContrast(double contrast) {
   }
   printf("Contrast adjustment ---OK!\n");
 }
-
 int truncate(double value) {
   if (value < 0)
     return 0;
@@ -140,8 +168,6 @@ int truncate(double value) {
     return 255;
   return (int)value;
 }
-
-
 std::vector<std::vector<float>> generate2DGaussianKernel(int kernel_size, float sigma)
 {
 	printf("Generating Gaussian\n");
@@ -173,10 +199,6 @@ std::vector<std::vector<float>> generate2DGaussianKernel(int kernel_size, float 
 	return kernel;
 
 }
-
-
-
-
 void bilateralSmoothing(int kernel_size)
 {
 	printf("Bilateral Smoothing\n");
@@ -394,7 +416,6 @@ void OB() {
   printf("Optical Black ---OK!\n");
 
 } // OB() end
-
 void WB() {
   int i, j;
 
@@ -763,7 +784,6 @@ void colormatrix() {
   printf("colormatrix ---OK!\n");
 
 } // colormatrix() end
-
 void apply_gamma(double gamma_cur) {
   int i, j;
   for (i = 0; i < HEIGHT; i++) {
@@ -795,7 +815,6 @@ void apply_gamma(double gamma_cur) {
   printf("gamma ---OK!\n");
 
 } // apply_gamma() end
-
 void edge_enhance() {
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 5; j < 3293; j++) {
@@ -869,7 +888,6 @@ void edge_enhance() {
   printf("Edge Enhancement ---OK!\n");
 
 } // edge_enhance() end
-
 void rgb2bmp(char *name) {
   FILE *fp;
   int zero = 0;
@@ -932,7 +950,6 @@ void rgb2bmp(char *name) {
   printf("%s output finished.\n", name);
 
 } // rgb2bmp() end
-
 void CFA_to_krkb() {
   printf("start get color interpolation\n");
 
@@ -1126,7 +1143,6 @@ void CFA_to_krkb() {
     }
   }
 }
-
 void getColor() {
   int i, j;
   // 1, 1
@@ -1183,7 +1199,6 @@ void getColor() {
   }
   printf("2, 2 ---OK!\n");
 }
-
 void NearestNeighborInterpolation() {
   int i, j;
   for (i = 1; i < 2459; i = i + 2) // Height
@@ -1230,7 +1245,6 @@ void NearestNeighborInterpolation() {
   }
   printf("2, 2 ---OK!\n");
 }
-
 void changeSaturation(double change) {
   for (int i = 1; i < 2459; i++) // Height
   {
@@ -1250,7 +1264,6 @@ void changeSaturation(double change) {
     }
   }
 }
-
 void RGB_2HSV_2RGB(double change) {
   int themin, themax, delta;
   int h;
@@ -1390,7 +1403,6 @@ void RGB_2HSV_2RGB(double change) {
     }
   }
 }
-
 void RGBtoHSV(int r, int g, int b, double &h, double &s, double &v) {
   int themin, themax, delta;
   themin = std::min({r, g, b});
@@ -1415,7 +1427,6 @@ void RGBtoHSV(int r, int g, int b, double &h, double &s, double &v) {
       h += 360;
   }
 }
-
 void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
   int i;
   double f, p, q, t;
@@ -1484,42 +1495,6 @@ void changeVibrance(double vibrance_factor, double saturation_threshold = 0.2) {
   }
 }
 
-//does not work
-void adaptiveVibrance(double vibrance_factor, int window_size = 3) {
-
-  for (int i = 1; i < 2459; i++) {   // Height
-    for (int j = 1; j < 3359; j++) { // Width
-      double h, s, v;
-      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
-
-      // Calculate local average saturation
-      double local_avg_saturation = 0.0;
-      int count = 0;
-      for (int k = -window_size / 2; k <= window_size / 2; k++) {
-        for (int l = -window_size / 2; l <= window_size / 2; l++) {
-          if (i + k >= 0 && i + k < 2459 && j + l >= 0 && j + l < 3359) {
-            double h_neighbor, s_neighbor, v_neighbor;
-            RGBtoHSV(r[i + k][j + l], g[i + k][j + l], b[i + k][j + l],
-                     h_neighbor, s_neighbor, v_neighbor);
-            local_avg_saturation += s_neighbor;
-            count++;
-          }
-        }
-      }
-      local_avg_saturation /= count;
-
-      // Adjust saturation based on local average
-      if (s > local_avg_saturation) {
-        s = std::max(0.0, s + (vibrance_factor * (s - local_avg_saturation)));
-      } else {
-        s = std::min(1.0, s + (vibrance_factor * (s - local_avg_saturation)));
-      }
-
-      HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
-    }
-  }
-}
-
 //artifact manufacturer
 void sharpen(double factor) {
   int width = WIDTH;
@@ -1574,33 +1549,6 @@ void sharpen(double factor) {
 
   printf("sharpen ---OK!\n");
 }
-
-const int idealColors[24][3] = {
-    {115, 82, 68},    // Dark skin
-    {194, 150, 130},  // Light skin
-    {98, 122, 157},   // Blue sky
-    {87, 108, 67},    // Foliage
-    {133, 128, 177},  // Blue flower
-    {103, 189, 170},  // Bluish green
-    {214, 126, 44},   // Orange
-    {80, 91, 166},    // Purplish blue
-    {193, 90, 99},    // Moderate red
-    {94, 60, 108},    // Purple
-    {157, 188, 64},   // Yellow green
-    {230, 162, 39},   // Orange yellow
-    {35, 63, 147},    // Blue
-    {67, 149, 74},    // Green
-    {180, 49, 57},    // Red
-    {238, 198, 21},   // Yellow
-    {188, 86, 146},   // Magenta
-    {0, 136, 170},    // Cyan
-    {243, 243, 243},  // White
-    {200, 200, 200},  // Neutral 8
-    {160, 160, 160},  // Neutral 6.5
-    {122, 122, 121},  // Neutral 5
-    {85, 85, 85},     // Neutral 3.5
-    {52, 52, 52}      // Black
-};
 
 void findClosestColor(int r, int g, int b, int* closestR, int* closestG, int* closestB) {
     int minDistance = INT_MAX;
@@ -1661,6 +1609,7 @@ void colorEnhance(int increment){
     }
   }
 }
+
 int main(int argc, char *argv[]) {
   for (int k = 1; k < argc; k++) {
     FILE *fp;
@@ -1679,10 +1628,11 @@ int main(int argc, char *argv[]) {
     OB();
     WB();
 
-    colormatrix();
+    //colormatrix();
 
-    color_interpolation();
-    NearestNeighborInterpolation();
+    // color_interpolation();
+    CFA_to_krkb();
+    // NearestNeighborInterpolation();
     getColor();
 
     apply_gamma(1.1);
@@ -1691,8 +1641,7 @@ int main(int argc, char *argv[]) {
 
     changeSaturation(1.1);
     changeVibrance(0.4, 0.3);
-    // adaptiveVibrance(0.4, 3);
-    adjustContrast(0.8);
+    adjustContrast(1.1);
     // sharpen(0.1);
     rgb2bmp(argv[k]);
   }
