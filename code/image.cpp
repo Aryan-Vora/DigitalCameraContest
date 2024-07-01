@@ -14,6 +14,18 @@
 #define HEIGHT 2460
 
 int pic[HEIGHT][WIDTH];
+int r[HEIGHT][WIDTH];
+int g[HEIGHT][WIDTH];
+int b[HEIGHT][WIDTH];
+
+int new_r[HEIGHT][WIDTH];
+int new_g[HEIGHT][WIDTH];
+int new_b[HEIGHT][WIDTH];
+int new_e[HEIGHT][WIDTH];
+
+int e[HEIGHT][WIDTH];
+int kr[HEIGHT][WIDTH];
+int kb[HEIGHT][WIDTH];
 void rgb2bmp(char *);
 void RGB_2HSV_2RGB(double change);
 void RGBtoHSV(int r, int g, int b, double *h, double *s, double *v);
@@ -27,7 +39,7 @@ void NearestNeighborInterpolation();
 void CFA_to_krkb();
 void colormatrix();
 void colorCorrection();
-
+void corrections();
 void apply_gamma(double);
 void color();
 void getColor();
@@ -39,18 +51,7 @@ void adjustContrast(double contrast);
 void bilateralSmoothing(int kernel_size);
 void gaussianBlur();
 
-int r[HEIGHT][WIDTH];
-int g[HEIGHT][WIDTH];
-int b[HEIGHT][WIDTH];
 
-int new_r[HEIGHT][WIDTH];
-int new_g[HEIGHT][WIDTH];
-int new_b[HEIGHT][WIDTH];
-int new_e[HEIGHT][WIDTH];
-
-int e[HEIGHT][WIDTH];
-int kr[HEIGHT][WIDTH];
-int kb[HEIGHT][WIDTH];
 double idealColors[24][3] = {
     {115, 82, 68},    // Dark skin
     {194, 150, 130},  // Light skin
@@ -1620,37 +1621,81 @@ void changeHSV(double hChange, double sChange, double vChange) {
   }
  printf("changeHSV --- OK!\n");
 }
-void corrections(){
-  //created an arbitrary threshold of pixels to count. Then for R, G, and B, I counted from 255->0 how many pixels of each intensity there were until I reached the threshold. This was my new max. I did the opposite from 0 to 255. This was my new 0. I subtracted the new 0 out of each one (make it 0 if it's <0) and then multiplied it such that the new 255 was now 255 (saturating it out to 255 if it was greater than 255)
-  int threshold = 1000;
-  int rMax = 0;
-  int gMax = 0;
-  int bMax = 0;
-  int rMin = 255;
-  int gMin = 255;
-  int bMin = 255;
-  for (int i = 0; i < 2459; i++) {
-    for (int j = 0; j < 3359; j++) {
-      if (r[i][j] > rMax) rMax = r[i][j];
-      if (g[i][j] > gMax) gMax = g[i][j];
-      if (b[i][j] > bMax) bMax = b[i][j];
-      if (r[i][j] < rMin) rMin = r[i][j];
-      if (g[i][j] < gMin) gMin = g[i][j];
-      if (b[i][j] < bMin) bMin = b[i][j];
+void corrections() {
+  const int width = 2459;
+  const int height = 3359;
+  const int pixelCount = width * height;
+  const float thresholdPercentage = 0.02; 
+
+  // Initialize histograms
+  std::vector<int> rHistogram(256, 0), gHistogram(256, 0), bHistogram(256, 0);
+
+  // Populate histograms
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
+      rHistogram[r[i][j]]++;
+      gHistogram[g[i][j]]++;
+      bHistogram[b[i][j]]++;
     }
   }
+
+  // Calculate new min and max based on threshold
+  auto calculateNewRange = [&](const std::vector<int>& histogram) {
+    int minVal = 0, maxVal = 255;
+    int threshold = pixelCount * thresholdPercentage;
+    int cumulative = 0;
+
+    // Find new min
+    for (int i = 0; i < 256 && cumulative < threshold; i++) {
+      cumulative += histogram[i];
+      if (cumulative >= threshold) {
+        minVal = i;
+        break;
+      }
+    }
+
+    cumulative = 0;
+    // Find new max
+    for (int i = 255; i >= 0 && cumulative < threshold; i--) {
+      cumulative += histogram[i];
+      if (cumulative >= threshold) {
+        maxVal = i;
+        break;
+      }
+    }
+
+    return std::make_pair(minVal, maxVal);
+  };
+
+  auto [rMin, rMax] = calculateNewRange(rHistogram);
+  auto [gMin, gMax] = calculateNewRange(gHistogram);
+  auto [bMin, bMax] = calculateNewRange(bHistogram);
+
   int rRange = rMax - rMin;
   int gRange = gMax - gMin;
   int bRange = bMax - bMin;
-  for (int i = 0; i < 2459; i++) {
-    for (int j = 0; j < 3359; j++) {
+
+  // Avoid division by zero
+  if (rRange == 0) rRange = 1;
+  if (gRange == 0) gRange = 1;
+  if (bRange == 0) bRange = 1;
+  // Adjust pixel values based on new ranges
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
+      int oldR = r[i][j];
+      int oldG = g[i][j];
+      int oldB = b[i][j];
+
       r[i][j] = std::clamp((r[i][j] - rMin) * 255 / rRange, 0, 255);
       g[i][j] = std::clamp((g[i][j] - gMin) * 255 / gRange, 0, 255);
       b[i][j] = std::clamp((b[i][j] - bMin) * 255 / bRange, 0, 255);
     }
   }
+
   printf("corrections --- OK!\n");
 }
+
+
 int main(int argc, char *argv[]) {
   for (int k = 1; k < argc; k++) {
     FILE *fp;
@@ -1678,10 +1723,10 @@ int main(int argc, char *argv[]) {
     apply_gamma(1);
 
     edge_enhance();
-    colorCorrection();
-    changeHSV(1, 1.1, 1.2);
-    //corrections();
     gaussianBlur();
+    colorCorrection();
+    changeHSV(1, 1.5, 1.1);
+    corrections();
     rgb2bmp(argv[k]);
   }
 
