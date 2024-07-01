@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 #include <climits>
+#include <cfloat>
 #define WIDTH 3360
 #define HEIGHT 2460
 
@@ -25,20 +26,18 @@ void color_interpolation();
 void NearestNeighborInterpolation();
 void CFA_to_krkb();
 void colormatrix();
-void colorCorrection(double change);
+void colorCorrection();
 
 void apply_gamma(double);
 void color();
 void getColor();
 
 void edge_enhance();
-void changeVibrance(double change, double sat);
+void changeHSV(double changeH, double changeS, double changeV);
 void sharpen(double change);
-void changeSaturation(double change);
-void colorEnhance(int increment);
-int truncate(double value);
 void adjustContrast(double contrast);
 void bilateralSmoothing(int kernel_size);
+void gaussianBlur();
 
 int r[HEIGHT][WIDTH];
 int g[HEIGHT][WIDTH];
@@ -52,7 +51,7 @@ int new_e[HEIGHT][WIDTH];
 int e[HEIGHT][WIDTH];
 int kr[HEIGHT][WIDTH];
 int kb[HEIGHT][WIDTH];
-const int idealColors[24][3] = {
+double idealColors[24][3] = {
     {115, 82, 68},    // Dark skin
     {194, 150, 130},  // Light skin
     {98, 122, 157},   // Blue sky
@@ -148,6 +147,13 @@ unsigned short int gamma_value[1024] = {
     252, 252, 252, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253,
     254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 255, 255, 255,
     255, 255, 255, 255};
+int truncate(double value) {
+  if (value < 0)
+    return 0;
+  if (value > 255)
+    return 255;
+  return (int)value;
+}
 void adjustContrast(double contrast) {
   int i, j;
   double factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
@@ -160,13 +166,6 @@ void adjustContrast(double contrast) {
     }
   }
   printf("Contrast adjustment ---OK!\n");
-}
-int truncate(double value) {
-  if (value < 0)
-    return 0;
-  if (value > 255)
-    return 255;
-  return (int)value;
 }
 std::vector<std::vector<float>> generate2DGaussianKernel(int kernel_size, float sigma)
 {
@@ -1245,25 +1244,6 @@ void NearestNeighborInterpolation() {
   }
   printf("2, 2 ---OK!\n");
 }
-void changeSaturation(double change) {
-  for (int i = 1; i < 2459; i++) // Height
-  {
-    for (int j = 1; j < 3359; j++) // Width
-    {
-      double P = sqrt(r[i][j] * r[i][j] * 0.299     // 0.299
-                      + g[i][j] * g[i][j] * 0.587   // 0.587
-                      + b[i][j] * b[i][j] * 0.114); // 0.114
-
-      r[i][j] * 0.299        // 0.299
-          + g[i][j] * 0.587  // 0.587
-          + b[i][j] * 0.114; // 0.114
-
-      r[i][j] = P + (r[i][j] - P) * change;
-      g[i][j] = P + (g[i][j] - P) * change;
-      b[i][j] = P + (b[i][j] - P) * change;
-    }
-  }
-}
 void RGB_2HSV_2RGB(double change) {
   int themin, themax, delta;
   int h;
@@ -1476,26 +1456,6 @@ void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
     break;
   }
 }
-
-//good
-void changeVibrance(double vibrance_factor, double saturation_threshold = 0.2) {
-
-  for (int i = 1; i < 2459; i++) {   // Height
-    for (int j = 1; j < 3359; j++) { // Width
-      double h, s, v;
-      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
-
-      // Selective saturation adjustment
-      if (s > saturation_threshold) {
-        s = std::min(1.0, s + (vibrance_factor * s));
-      }
-
-      HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
-    }
-  }
-}
-
-//artifact manufacturer
 void sharpen(double factor) {
   int width = WIDTH;
   int height = HEIGHT;
@@ -1549,14 +1509,20 @@ void sharpen(double factor) {
 
   printf("sharpen ---OK!\n");
 }
+void findClosestColor(double r, double g, double b, double* closestR, double* closestG, double* closestB) {
+    double inputH, inputS, inputV;
+    RGBtoHSV(r, g, b, inputH, inputS, inputV);
 
-void findClosestColor(int r, int g, int b, int* closestR, int* closestG, int* closestB) {
-    int minDistance = INT_MAX;
+    double minDistance = std::numeric_limits<double>::max();
     for (int i = 0; i < 24; i++) {
-        int dr = r - idealColors[i][0];
-        int dg = g - idealColors[i][1];
-        int db = b - idealColors[i][2];
-        int distance = dr * dr + dg * dg + db * db;
+        double idealH, idealS, idealV;
+        RGBtoHSV(idealColors[i][0], idealColors[i][1], idealColors[i][2], idealH, idealS, idealV);
+
+        double dh = std::min(std::abs(idealH - inputH), 360 - std::abs(idealH - inputH)); // Circular distance for hue
+        double ds = idealS - inputS;
+        double dv = idealV - inputV;
+        double distance = dh * dh + ds * ds + dv * dv;
+
         if (distance < minDistance) {
             minDistance = distance;
             *closestR = idealColors[i][0];
@@ -1565,51 +1531,81 @@ void findClosestColor(int r, int g, int b, int* closestR, int* closestG, int* cl
         }
     }
 }
+void colorCorrection() {
+  for (int i = 0; i < 24; i++) {
+    double h, s, v;
+    RGBtoHSV(idealColors[i][0], idealColors[i][1], idealColors[i][2], h, s, v);
+  }
+  // Convert the image to HSV and adjust only the hue to be closer to ideal colors by a factor of change
+  for (int i = 0; i < 2459; i++) { // Adjust loop to start from 0
+    for (int j = 0; j < 3359; j++) { // Adjust loop to start from 0
+      double h, s, v;
+      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
 
-//doesnt work because rgb doesnt work this way but it is a good idea so i will keep it
-void colorCorrection(double change) {
-    int i, j;
-    for (i = 0; i < 2459; i++) { // Height
-        for (j = 0; j < 3359; j++) { // Width
-            int closestR, closestG, closestB;
-            findClosestColor(r[i][j], g[i][j], b[i][j], &closestR, &closestG, &closestB);
+      double closestR, closestG, closestB;
+      findClosestColor(r[i][j], g[i][j], b[i][j], &closestR, &closestG, &closestB);
 
-            // Adjust the pixel values
-            r[i][j] = (closestR - r[i][j]) * change + r[i][j];
-            g[i][j] = (closestG - g[i][j]) * change + g[i][j];
-            b[i][j] = (closestB - b[i][j]) * change + b[i][j];
-        }
-    }
-    printf("colorCorrection --- OK!\n");
-}
+      double closestH, closestS, closestV;
+      RGBtoHSV(closestR, closestG, closestB, closestH, closestS, closestV);
 
-//Terrible function dont use
-void colorEnhance(int increment){
-  //find the highest r g or b value and increase it by increment and then decrease the others by the same amount
-  int i, j;
-  for (i = 0; i < 2459; i++) { // Height
-    for (j = 0; j < 3359; j++) { // Width
-      int max = std::max({r[i][j], g[i][j], b[i][j]});
-      if (max == r[i][j]) {
-        r[i][j] = r[i][j] +increment;
-        if (r[i][j] > 255) {
-          r[i][j] = 255;
-        }
-      } else if (max == g[i][j]) {
-        g[i][j] = g[i][j] +increment;
-        if (g[i][j] > 255) {
-          g[i][j] = 255;
-        }
-      } else {
-        b[i][j] = b[i][j] +increment;
-        if (b[i][j] > 255) {
-          b[i][j] = 255;
-        }
-      }
+      // Adjust only the hue
+      double newH = h + (closestH - h) * 0.1;
+
+      // Keep the original saturation and value
+      HSVtoRGB(newH, s, v, r[i][j], g[i][j], b[i][j]);
     }
   }
+  printf("colorCorrection --- OK!\n");
 }
+void gaussianBlur(){
+  // 3x3 kernel
+  double kernel[3][3] = {
+      {1.0 / 16, 2.0 / 16, 1.0 / 16},
+      {2.0 / 16, 4.0 / 16, 2.0 / 16},
+      {1.0 / 16, 2.0 / 16, 1.0 / 16}};
+  int width = WIDTH;
+  int height = HEIGHT;
+  for (int y = 1; y < height - 1; ++y) {
+    for (int x = 1; x < width - 1; ++x) {
+      double sumR = 0, sumG = 0, sumB = 0;
+      for (int ky = -1; ky <= 1; ++ky) {
+        for (int kx = -1; kx <= 1; ++kx) {
+          int pixelR = r[y + ky][x + kx];
+          int pixelG = g[y + ky][x + kx];
+          int pixelB = b[y + ky][x + kx];
+          sumR += pixelR * kernel[ky + 1][kx + 1];
+          sumG += pixelG * kernel[ky + 1][kx + 1];
+          sumB += pixelB * kernel[ky + 1][kx + 1];
+        }
+      }
+      r[y][x] = std::min(std::max(int(sumR), 0), 255);
+      g[y][x] = std::min(std::max(int(sumG), 0), 255);
+      b[y][x] = std::min(std::max(int(sumB), 0), 255);
+    }
+  }
+  printf("gaussianBlur --- OK!\n");
 
+}
+void changeHSV(double hChange, double sChange, double vChange) {
+  for (int i = 0; i < 2459; i++) {
+    for (int j = 0; j < 3359; j++) {
+      double h, s, v;
+      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
+
+      // Modify h, s, and v by the given factors
+      h += hChange;
+      s = std::clamp(s * sChange, 0.0, 1.0);
+      v = std::clamp(v * vChange, 0.0, 1.0);
+
+      // Ensure hue wraps correctly between 0 and 360
+      if (h >= 360.0) h -= 360.0;
+      else if (h < 0) h += 360.0;
+
+      HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
+    }
+  }
+ printf("changeHSV --- OK!\n");
+}
 int main(int argc, char *argv[]) {
   for (int k = 1; k < argc; k++) {
     FILE *fp;
@@ -1628,21 +1624,16 @@ int main(int argc, char *argv[]) {
     OB();
     WB();
 
-    //colormatrix();
-
-    // color_interpolation();
+    colormatrix();
+    color_interpolation();
     CFA_to_krkb();
-    // NearestNeighborInterpolation();
+    NearestNeighborInterpolation();
     getColor();
-
-    apply_gamma(1.1);
-    // edge_enhance();
-    bilateralSmoothing(3.0);
-
-    changeSaturation(1.1);
-    changeVibrance(0.4, 0.3);
-    adjustContrast(1.1);
-    // sharpen(0.1);
+    apply_gamma(1);
+    edge_enhance();
+    colorCorrection();
+    changeHSV(1, 1.1, 1.2);
+    gaussianBlur();
     rgb2bmp(argv[k]);
   }
 
