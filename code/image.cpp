@@ -1586,6 +1586,20 @@ void gaussianBlur(){
   printf("gaussianBlur --- OK!\n");
 
 }
+void changeVibrance(double factor) {
+  for (int i = 0; i < 2459; i++) {
+    for (int j = 0; j < 3359; j++) {
+      double h, s, v;
+      RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
+
+      // Modify s by the given factor
+      s = std::clamp(s * factor, 0.0, 1.0);
+
+      HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
+    }
+  }
+  printf("changeVibrance --- OK!\n");
+}
 void changeHSV(double hChange, double sChange, double vChange) {
   for (int i = 0; i < 2459; i++) {
     for (int j = 0; j < 3359; j++) {
@@ -1605,6 +1619,37 @@ void changeHSV(double hChange, double sChange, double vChange) {
     }
   }
  printf("changeHSV --- OK!\n");
+}
+void corrections(){
+  //created an arbitrary threshold of pixels to count. Then for R, G, and B, I counted from 255->0 how many pixels of each intensity there were until I reached the threshold. This was my new max. I did the opposite from 0 to 255. This was my new 0. I subtracted the new 0 out of each one (make it 0 if it's <0) and then multiplied it such that the new 255 was now 255 (saturating it out to 255 if it was greater than 255)
+  int threshold = 1000;
+  int rMax = 0;
+  int gMax = 0;
+  int bMax = 0;
+  int rMin = 255;
+  int gMin = 255;
+  int bMin = 255;
+  for (int i = 0; i < 2459; i++) {
+    for (int j = 0; j < 3359; j++) {
+      if (r[i][j] > rMax) rMax = r[i][j];
+      if (g[i][j] > gMax) gMax = g[i][j];
+      if (b[i][j] > bMax) bMax = b[i][j];
+      if (r[i][j] < rMin) rMin = r[i][j];
+      if (g[i][j] < gMin) gMin = g[i][j];
+      if (b[i][j] < bMin) bMin = b[i][j];
+    }
+  }
+  int rRange = rMax - rMin;
+  int gRange = gMax - gMin;
+  int bRange = bMax - bMin;
+  for (int i = 0; i < 2459; i++) {
+    for (int j = 0; j < 3359; j++) {
+      r[i][j] = std::clamp((r[i][j] - rMin) * 255 / rRange, 0, 255);
+      g[i][j] = std::clamp((g[i][j] - gMin) * 255 / gRange, 0, 255);
+      b[i][j] = std::clamp((b[i][j] - bMin) * 255 / bRange, 0, 255);
+    }
+  }
+  printf("corrections --- OK!\n");
 }
 int main(int argc, char *argv[]) {
   for (int k = 1; k < argc; k++) {
@@ -1628,11 +1673,14 @@ int main(int argc, char *argv[]) {
     color_interpolation();
     CFA_to_krkb();
     NearestNeighborInterpolation();
+
     getColor();
     apply_gamma(1);
+
     edge_enhance();
     colorCorrection();
     changeHSV(1, 1.1, 1.2);
+    //corrections();
     gaussianBlur();
     rgb2bmp(argv[k]);
   }
