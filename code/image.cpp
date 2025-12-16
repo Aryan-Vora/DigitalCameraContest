@@ -1,15 +1,16 @@
-#include <algorithm>
-#include <cmath>
-#include <iostream>
 #include <math.h>
-#include <set>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <algorithm>
+#include <cfloat>
+#include <climits>
+#include <cmath>
+#include <iostream>
+#include <set>
 #include <utility>
 #include <vector>
-#include <climits>
-#include <cfloat>
 #define WIDTH 3360
 #define HEIGHT 2460
 
@@ -26,10 +27,10 @@ int new_e[HEIGHT][WIDTH];
 int e[HEIGHT][WIDTH];
 int kr[HEIGHT][WIDTH];
 int kb[HEIGHT][WIDTH];
-void rgb2bmp(char *);
+void rgb2bmp(char*);
 void RGB_2HSV_2RGB(double change);
-void RGBtoHSV(int r, int g, int b, double *h, double *s, double *v);
-void HSVtoRGB(double h, double s, double v, int *r, int *g, int *b);
+void RGBtoHSV(int r, int g, int b, double* h, double* s, double* v);
+void HSVtoRGB(double h, double s, double v, int* r, int* g, int* b);
 
 void OB();
 void WB();
@@ -50,7 +51,6 @@ void sharpen(double change);
 void adjustContrast(double contrast);
 void bilateralSmoothing(int kernel_size);
 void gaussianBlur();
-
 
 double idealColors[24][3] = {
     {115, 82, 68},    // Dark skin
@@ -149,10 +149,8 @@ unsigned short int gamma_value[1024] = {
     254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 255, 255, 255,
     255, 255, 255, 255};
 int truncate(double value) {
-  if (value < 0)
-    return 0;
-  if (value > 255)
-    return 255;
+  if (value < 0) return 0;
+  if (value > 255) return 255;
   return (int)value;
 }
 void adjustContrast(double contrast) {
@@ -168,142 +166,132 @@ void adjustContrast(double contrast) {
   }
   printf("Contrast adjustment ---OK!\n");
 }
-std::vector<std::vector<float>> generate2DGaussianKernel(int kernel_size, float sigma)
-{
-	printf("Generating Gaussian\n");
-	std::vector<std::vector<float>> kernel(kernel_size, std::vector<float>(kernel_size));
-	
-	int center = kernel_size / 2;
-	//printf("%d\n", center);
-	float total = 0;
-	for (int i=0; i<kernel_size;i++)
-	{
-		for(int j=0;j<kernel_size;j++)
-		{
-			int x = abs(i-center);
-			int y = abs(j-center);
-			float val = exp((-((x*x) + (y*y))) / (2 * sigma * sigma)) / (2 * M_PI * sigma*sigma);
-			kernel[i][j] = val; 
-			total += val;
-		}
-	}
+std::vector<std::vector<float>> generate2DGaussianKernel(int kernel_size,
+                                                         float sigma) {
+  printf("Generating Gaussian\n");
+  std::vector<std::vector<float>> kernel(kernel_size,
+                                         std::vector<float>(kernel_size));
 
-	for (int i=0;i<kernel_size;i++)
-	{
-		for(int j=0;j<kernel_size;j++)
-		{
-			kernel[i][j] /= total;
-		}
-	}
+  int center = kernel_size / 2;
+  // printf("%d\n", center);
+  float total = 0;
+  for (int i = 0; i < kernel_size; i++) {
+    for (int j = 0; j < kernel_size; j++) {
+      int x = abs(i - center);
+      int y = abs(j - center);
+      float val = exp((-((x * x) + (y * y))) / (2 * sigma * sigma)) /
+                  (2 * M_PI * sigma * sigma);
+      kernel[i][j] = val;
+      total += val;
+    }
+  }
 
-	return kernel;
+  for (int i = 0; i < kernel_size; i++) {
+    for (int j = 0; j < kernel_size; j++) {
+      kernel[i][j] /= total;
+    }
+  }
 
+  return kernel;
 }
-void bilateralSmoothing(int kernel_size)
-{
-	printf("Bilateral Smoothing\n");
-	
-	float spatial_sigma = 2;
-	float intensity_sigma = 0.1;
+void bilateralSmoothing(int kernel_size) {
+  printf("Bilateral Smoothing\n");
 
-	// Get normal spatial kernel
-	std::vector<std::vector<float>> kernel = generate2DGaussianKernel(kernel_size, spatial_sigma);
+  float spatial_sigma = 2;
+  float intensity_sigma = 0.1;
 
+  // Get normal spatial kernel
+  std::vector<std::vector<float>> kernel =
+      generate2DGaussianKernel(kernel_size, spatial_sigma);
 
-	std::cout << "Calculated 2D Kernel" << std::endl;
-	for(int i = 0; i <2460 ; i += 1)
-	{
-		for(int j = 0 ; j<3330; j += 1)
-		{
+  std::cout << "Calculated 2D Kernel" << std::endl;
+  for (int i = 0; i < 2460; i += 1) {
+    for (int j = 0; j < 3330; j += 1) {
+      float center_r = r[i][j];
+      float center_g = g[i][j];
+      float center_b = b[i][j];
 
-			float center_r = r[i][j];
-			float center_g = g[i][j];
-			float center_b = b[i][j];
+      std::vector<std::vector<float>> intensity_kernel(
+          kernel_size, std::vector<float>(kernel_size));
 
-			std::vector<std::vector<float>> intensity_kernel(kernel_size, std::vector<float>(kernel_size));
+      // Get radiometric kernel.
+      // Base distance on euclidean RGB color-space distance (too complex to
+      // change color-spaces)
+      float total = 0;
+      int temp = kernel_size / 2;
+      for (int ii = 0; ii < kernel_size; ii++) {
+        for (int jj = 0; jj < kernel_size; jj++) {
+          float dist_r = 0;
+          float dist_g = 0;
+          float dist_b = 0;
+          if (i + ii - temp < 2460 && j + jj - temp < 3330 &&
+              i + ii - temp > 0 && j + jj - temp > 0) {
+            dist_r = center_r - r[i + ii - temp][j + jj - temp];
+            dist_g = center_g - g[i + ii - temp][j + jj - temp];
+            dist_b = center_b - b[i + ii - temp][j + jj - temp];
+          }
+          float dist = abs(dist_r) + abs(dist_g) + abs(dist_b);
 
-			// Get radiometric kernel.
-			// Base distance on euclidean RGB color-space distance (too complex to change color-spaces)
-			float total = 0;
-			int temp = kernel_size / 2;
-			for (int ii=0; ii<kernel_size;ii++)
-			{
-				for (int jj=0;jj<kernel_size;jj++)
-				{
-					float dist_r = 0;
-					float dist_g = 0;
-					float dist_b = 0;
-					if (i+ii-temp < 2460 && j+jj-temp < 3330 && i+ii-temp > 0 && j+jj-temp > 0)
-					{
-						dist_r = center_r - r[i+ii-temp][j+jj-temp];
-						dist_g = center_g - g[i+ii-temp][j+jj-temp];
-						dist_b = center_b - b[i+ii-temp][j+jj-temp];
-					}
-					float dist = abs(dist_r) + abs(dist_g) + abs(dist_b);
-
-					float val = exp(-dist/(2*intensity_sigma*intensity_sigma)) / (sqrt(2*M_PI)*intensity_sigma);
-					intensity_kernel[ii][jj] = val;	
-					total += val;
-				}
-			}
-			for(int ii=0;ii<kernel_size;ii++)
-			{
-				for(int jj=0;jj<kernel_size;jj++)
-				{
-					intensity_kernel[ii][jj] /= total;
-				}
-			}
-    std::vector<std::vector<float>> final_kernel(kernel_size, std::vector<float>(kernel_size, 0));
-    float total_kernel = 0;
-    for (int ii = 0; ii < kernel_size; ii++) {
-    for (int jj = 0; jj < kernel_size; jj++) {
-      for (int kk = 0; kk < kernel_size; kk++) {
-        float val = kernel[ii][kk] * intensity_kernel[kk][jj];
-        final_kernel[ii][jj] += val;
+          float val = exp(-dist / (2 * intensity_sigma * intensity_sigma)) /
+                      (sqrt(2 * M_PI) * intensity_sigma);
+          intensity_kernel[ii][jj] = val;
+          total += val;
+        }
       }
-      total_kernel += final_kernel[ii][jj];
+      for (int ii = 0; ii < kernel_size; ii++) {
+        for (int jj = 0; jj < kernel_size; jj++) {
+          intensity_kernel[ii][jj] /= total;
+        }
+      }
+      std::vector<std::vector<float>> final_kernel(
+          kernel_size, std::vector<float>(kernel_size, 0));
+      float total_kernel = 0;
+      for (int ii = 0; ii < kernel_size; ii++) {
+        for (int jj = 0; jj < kernel_size; jj++) {
+          for (int kk = 0; kk < kernel_size; kk++) {
+            float val = kernel[ii][kk] * intensity_kernel[kk][jj];
+            final_kernel[ii][jj] += val;
+          }
+          total_kernel += final_kernel[ii][jj];
+        }
+      }
+      // Normalize kernel
+      for (int ii = 0; ii < kernel_size; ii++) {
+        for (int jj = 0; jj < kernel_size; jj++) {
+          final_kernel[ii][jj] /= total_kernel;
+        }
+      }
+
+      // std::cout << "Normalized Kernel" << std::endl;
+
+      for (int ii = 0; ii < kernel_size; ii++) {
+        for (int jj = 0; jj < kernel_size; jj++) {
+          if (i + ii - temp < 2460 && j + jj - temp < 3330 &&
+              i + ii - temp > 0 && j + jj - temp > 0) {
+            new_r[i][j] +=
+                r[i + ii - temp][j + jj - temp] * final_kernel[ii][jj];
+            new_b[i][j] +=
+                b[i + ii - temp][j + jj - temp] * final_kernel[ii][jj];
+            new_g[i][j] +=
+                g[i + ii - temp][j + jj - temp] * final_kernel[ii][jj];
+            new_e[i][j] +=
+                e[i + ii - temp][j + jj - temp] * final_kernel[ii][jj];
+          }
+        }
+      }
+
+      // std::cout << "End Loop" << std::endl;
     }
+  }
+
+  for (int i = 0; i < 2460; i++) {
+    for (int j = 0; j < 3330; j++) {
+      r[i][j] = new_r[i][j];
+      b[i][j] = new_b[i][j];
+      g[i][j] = new_g[i][j];
+      e[i][j] = new_e[i][j];
     }
-			// Normalize kernel
-			for(int ii=0;ii<kernel_size;ii++)
-			{
-				for(int jj=0;jj<kernel_size;jj++)
-				{
-					final_kernel[ii][jj] /= total_kernel;
-				}
-			}
-
-			//std::cout << "Normalized Kernel" << std::endl;
-
-			for(int ii=0;ii<kernel_size;ii++)
-			{
-				for(int jj=0;jj<kernel_size;jj++)
-				{
-					if (i+ii-temp < 2460 && j+jj-temp < 3330 && i+ii-temp>0 && j+jj-temp>0)
-					{
-						new_r[i][j] += r[i+ii-temp][j+jj-temp] * final_kernel[ii][jj];
-						new_b[i][j] += b[i+ii-temp][j+jj-temp] * final_kernel[ii][jj];			
-						new_g[i][j] += g[i+ii-temp][j+jj-temp] * final_kernel[ii][jj];
-						new_e[i][j] += e[i+ii-temp][j+jj-temp] * final_kernel[ii][jj];
-					}
-				}
-			}
-
-
-			//std::cout << "End Loop" << std::endl;
-		}
-	}
-
-	for (int i=0;i<2460;i++)
-	{
-		for (int j=0;j<3330;j++)
-		{
-			r[i][j] = new_r[i][j]; 
-			b[i][j] = new_b[i][j];
-			g[i][j] = new_g[i][j];
-			e[i][j] = new_e[i][j];
-		}
-	}
+  }
 }
 void OB() {
   int ob_sum = 0;
@@ -415,11 +403,11 @@ void OB() {
 
   printf("Optical Black ---OK!\n");
 
-} // OB() end
+}  // OB() end
 void WB() {
   int i, j;
 
-  double r_hist[16384], g_hist[16384], b_hist[16384]; // 16384=2^14
+  double r_hist[16384], g_hist[16384], b_hist[16384];  // 16384=2^14
   double r_accu[16384], g_accu[16384], b_accu[16384];
 
   for (i = 0; i < 16384; i++) {
@@ -431,12 +419,12 @@ void WB() {
 
   for (i = 0; i < HEIGHT; i += 2) {
     for (j = 5; j < 3293; j += 2) {
-      r_hist[pic[i][j]]++;           // R
-      b_hist[pic[i + 1][j + 1]]++;   // B
-      g_hist[pic[i + 1][j]]++;       // G
-      g_hist[pic[i][j + 1] / 2]++;   // E
-      r_hist[(pic[i][j + 1] / 3)]++; // E
-      b_hist[(pic[i][j + 1] / 2)]++; // E
+      r_hist[pic[i][j]]++;            // R
+      b_hist[pic[i + 1][j + 1]]++;    // B
+      g_hist[pic[i + 1][j]]++;        // G
+      g_hist[pic[i][j + 1] / 2]++;    // E
+      r_hist[(pic[i][j + 1] / 3)]++;  // E
+      b_hist[(pic[i][j + 1] / 2)]++;  // E
     }
   }
 
@@ -454,27 +442,27 @@ void WB() {
   // normalization
   for (i = 0; i < 16384; i++) {
     r_hist[i] = ((float)r_accu[i] / 1997568) *
-                16384; // 2066400 = WIDTH*HEIGHT/4, 16384 = 2^14
+                16384;  // 2066400 = WIDTH*HEIGHT/4, 16384 = 2^14
     g_hist[i] = ((float)g_accu[i] / 1997568) *
-                16384; // 2066400 = WIDTH*HEIGHT/4, 16384 = 2^14
+                16384;  // 2066400 = WIDTH*HEIGHT/4, 16384 = 2^14
     b_hist[i] = ((float)b_accu[i] / 1997568) *
-                16384; // 2066400 = WIDTH*HEIGHT/4, 16384 = 2^14
+                16384;  // 2066400 = WIDTH*HEIGHT/4, 16384 = 2^14
   }
 
   /* White Point Detection */
   float r_equal, g_equal, b_equal;
   float Y_hist, Cr_hist, Cb_hist;
   float Y_bright = 0.0, Cr_bright = 192.0,
-        Cb_bright = 192.0; // probably white point 192
+        Cb_bright = 192.0;  // probably white point 192
   double Y_avg_hist = 0.0, Cr_avg_hist1 = 0.0, Cb_avg_hist1 = 0.0,
          Cr_avg_hist2 = 0.0, Cb_avg_hist2 = 0.0;
   unsigned int counterCb1 = 0, counterCb2 = 0, counterCr1 = 0, counterCr2 = 0;
 
   for (i = 0; i < HEIGHT; i += 2) {
     for (j = 5; j < 3293; j += 2) {
-      r_equal = r_hist[pic[i][j]];         // r histogram equalization
-      b_equal = b_hist[pic[i + 1][j + 1]]; // b histogram equalization
-      g_equal = g_hist[pic[i + 1][j]];     // g histogram equalization
+      r_equal = r_hist[pic[i][j]];          // r histogram equalization
+      b_equal = b_hist[pic[i + 1][j + 1]];  // b histogram equalization
+      g_equal = g_hist[pic[i + 1][j]];      // g histogram equalization
 
       Y_hist = (0.299 * r_equal) + (0.587 * g_equal) + (0.114 * b_equal);
       Cr_hist = (0.500 * r_equal) - (0.4187 * g_equal) - (0.0813 * b_equal);
@@ -482,11 +470,11 @@ void WB() {
 
       if (Y_hist >= 12000 && (Cr_hist <= 192 && Cr_hist >= -192 &&
                               (Cb_hist <= 192 && Cb_hist >= -192))) {
-        if (Y_hist > Y_bright) // the bigger the better
+        if (Y_hist > Y_bright)  // the bigger the better
           Y_bright = Y_hist;
-        if (fabs(Cr_hist) < fabs(Cr_bright)) // the smaller the better
+        if (fabs(Cr_hist) < fabs(Cr_bright))  // the smaller the better
           Cr_bright = Cr_hist;
-        if (fabs(Cb_hist) < fabs(Cb_bright)) // the smaller the better
+        if (fabs(Cb_hist) < fabs(Cb_bright))  // the smaller the better
           Cb_bright = Cb_hist;
 
         Y_avg_hist += Y_hist;
@@ -570,14 +558,14 @@ void WB() {
   for (i = 0; i < HEIGHT; i += 2) {
     for (j = 5; j < 3293; j += 2) {
       // calculate the original R G B
-      R_avg += pic[i][j];         // r
-      B_avg += pic[i + 1][j + 1]; // b
-      G_avg += pic[i + 1][j];     // g
+      R_avg += pic[i][j];          // r
+      B_avg += pic[i + 1][j + 1];  // b
+      G_avg += pic[i + 1][j];      // g
 
       // calculate the R G B after histogram equalization
-      r_equal = r_hist[pic[i][j]];         // r histogram equalization
-      b_equal = b_hist[pic[i + 1][j + 1]]; // b histogram equalization
-      g_equal = g_hist[pic[i + 1][j]];     // g histogram equalization
+      r_equal = r_hist[pic[i][j]];          // r histogram equalization
+      b_equal = b_hist[pic[i + 1][j + 1]];  // b histogram equalization
+      g_equal = g_hist[pic[i + 1][j]];      // g histogram equalization
       R_hist_avg += r_equal;
       G_hist_avg += g_equal;
       B_hist_avg += b_equal;
@@ -591,9 +579,9 @@ void WB() {
       if ((Y_hist >= Y_low && Y_hist <= Y_up) &&
           (Cr_hist >= Cr_low && Cr_hist <= Cr_up) &&
           (Cb_hist >= Cb_low && Cb_hist <= Cb_up)) {
-        R_white += pic[i][j];         // r
-        B_white += pic[i + 1][j + 1]; // b
-        G_white += pic[i + 1][j];     // g
+        R_white += pic[i][j];          // r
+        B_white += pic[i + 1][j + 1];  // b
+        G_white += pic[i + 1][j];      // g
         counter++;
       }
     }
@@ -617,20 +605,20 @@ void WB() {
     // calculate the scale factor from reference white point
     float R_scale, G_scale, B_scale;
     R_scale = ((0.299 * R_white) + (0.587 * G_white) + (0.114 * B_white)) /
-              R_white; // Y_white/R_white
+              R_white;  // Y_white/R_white
     G_scale = ((0.299 * R_white) + (0.587 * G_white) + (0.114 * B_white)) /
-              G_white; // Y_white/G_white
+              G_white;  // Y_white/G_white
     B_scale = ((0.299 * R_white) + (0.587 * G_white) + (0.114 * B_white)) /
-              B_white; // Y_white/B_white
+              B_white;  // Y_white/B_white
 
     // calculate the scale factor from gray world assumption
     float R_GWA, G_GWA, B_GWA;
     R_GWA = ((0.299 * R_avg) + (0.587 * G_avg) + (0.114 * B_avg)) /
-            R_avg; // Y_avg/R_avg
+            R_avg;  // Y_avg/R_avg
     G_GWA = ((0.299 * R_avg) + (0.587 * G_avg) + (0.114 * B_avg)) /
-            G_avg; // Y_avg/G_avg
+            G_avg;  // Y_avg/G_avg
     B_GWA = ((0.299 * R_avg) + (0.587 * G_avg) + (0.114 * B_avg)) /
-            B_avg; // Y_avg/B_avg
+            B_avg;  // Y_avg/B_avg
 
     // calculate the color cast
     float R_factor, G_factor, B_factor;
@@ -671,17 +659,17 @@ void WB() {
           if (pic[i][j + 1] * R_factor < 0)
             pic[i][j + 1] = 0;
           else
-            pic[i][j + 1] *= R_factor; // r
+            pic[i][j + 1] *= R_factor;  // r
 
           if (pic[i + 1][j] * B_factor < 0)
             pic[i + 1][j] = 0;
           else
-            pic[i + 1][j] *= B_factor; // b
+            pic[i + 1][j] *= B_factor;  // b
 
           if (pic[i + 1][j + 1] * G_factor < 0)
             pic[i + 1][j + 1] = 0;
           else
-            pic[i + 1][j + 1] *= G_factor; // g
+            pic[i + 1][j + 1] *= G_factor;  // g
         }
       }
     }
@@ -692,7 +680,7 @@ void WB() {
 
   printf("White balance ---OK!\n");
 
-} // WB() end
+}  // WB() end
 void color_interpolation() {
   int i, j;
 
@@ -700,9 +688,13 @@ void color_interpolation() {
   for (i = 0; i < HEIGHT; i = i + 2) {
     for (j = 5; j < 3293; j = j + 2) {
       r[i][j] = pic[i][j];
-      g[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2 : pic[i][j];
-      b[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292) ? 
-                (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] + pic[i + 1][j + 1]) / 4 : pic[i][j];
+      g[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2
+                                          : pic[i][j];
+      b[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292)
+                    ? (pic[i - 1][j - 1] + pic[i - 1][j + 1] +
+                       pic[i + 1][j - 1] + pic[i + 1][j + 1]) /
+                          4
+                    : pic[i][j];
     }
   }
 
@@ -710,18 +702,25 @@ void color_interpolation() {
   for (i = 1; i < HEIGHT; i = i + 2) {
     for (j = 5; j < 3293; j = j + 2) {
       g[i][j] = pic[i][j];
-      r[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2 : pic[i][j];
-      b[i][j] = (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
+      r[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2
+                                          : pic[i][j];
+      b[i][j] =
+          (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
     }
   }
 
   // E region
   for (i = 0; i < HEIGHT; i = i + 2) {
     for (j = 6; j < 3293; j = j + 2) {
-      b[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2 : pic[i][j];
-      g[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292) ? 
-                (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] + pic[i + 1][j + 1]) / 4 : pic[i][j];
-      r[i][j] = (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
+      b[i][j] = (i > 0 && i < HEIGHT - 1) ? (pic[i - 1][j] + pic[i + 1][j]) / 2
+                                          : pic[i][j];
+      g[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292)
+                    ? (pic[i - 1][j - 1] + pic[i - 1][j + 1] +
+                       pic[i + 1][j - 1] + pic[i + 1][j + 1]) /
+                          4
+                    : pic[i][j];
+      r[i][j] =
+          (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
     }
   }
 
@@ -729,15 +728,19 @@ void color_interpolation() {
   for (i = 1; i < HEIGHT; i = i + 2) {
     for (j = 6; j < 3293; j = j + 2) {
       b[i][j] = pic[i][j];
-      r[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292) ? 
-                (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] + pic[i + 1][j + 1]) / 4 : pic[i][j];
-      g[i][j] = (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
+      r[i][j] = (i > 0 && i < HEIGHT - 1 && j > 0 && j < 3292)
+                    ? (pic[i - 1][j - 1] + pic[i - 1][j + 1] +
+                       pic[i + 1][j - 1] + pic[i + 1][j + 1]) /
+                          4
+                    : pic[i][j];
+      g[i][j] =
+          (j > 0 && j < 3292) ? (pic[i][j - 1] + pic[i][j + 1]) / 2 : pic[i][j];
     }
   }
 
   printf("Color interpolation ---OK!\n");
 
-} // color_interpolation() end
+}  // color_interpolation() end
 void colormatrix() {
   //	[R']=[ 1+sa+sb   -sa       -sb     ][R]
   //	[G']=[ -sc       1+sc+sd   -sd     ][G]
@@ -759,7 +762,7 @@ void colormatrix() {
       r[i][j] =
           (double)((6.3329) * temp_r + (-2.7900) * temp_g + (1.5002) * temp_b);
 
-      if (r[i][j] > 16360) // 1022.5*16
+      if (r[i][j] > 16360)  // 1022.5*16
         r[i][j] = 16360;
       else if (r[i][j] < 0)
         r[i][j] = 0;
@@ -767,7 +770,7 @@ void colormatrix() {
       g[i][j] =
           (double)((0.1362) * temp_r + (2.6597) * temp_g + (0.0751) * temp_b);
 
-      if (g[i][j] > 16360) // 1022.5*16
+      if (g[i][j] > 16360)  // 1022.5*16
         g[i][j] = 16360;
       else if (g[i][j] < 0)
         g[i][j] = 0;
@@ -775,7 +778,7 @@ void colormatrix() {
       b[i][j] =
           (double)((1.2656) * temp_r + (-1.5919) * temp_g + (4.7861) * temp_b);
 
-      if (b[i][j] > 16360) // 1022.5*16
+      if (b[i][j] > 16360)  // 1022.5*16
         b[i][j] = 16360;
       else if (b[i][j] < 0)
         b[i][j] = 0;
@@ -783,7 +786,7 @@ void colormatrix() {
   }
   printf("colormatrix ---OK!\n");
 
-} // colormatrix() end
+}  // colormatrix() end
 void apply_gamma(double gamma_cur) {
   int i, j;
   for (i = 0; i < HEIGHT; i++) {
@@ -806,7 +809,7 @@ void apply_gamma(double gamma_cur) {
         b[i][j] = pow(b[i][j], gamma_cur);
       }
 
-      r[i][j] = gamma_value[r[i][j] / 16]; // 16=2^14/2^10
+      r[i][j] = gamma_value[r[i][j] / 16];  // 16=2^14/2^10
       g[i][j] = gamma_value[g[i][j] / 16];
       b[i][j] = gamma_value[b[i][j] / 16];
     }
@@ -814,7 +817,7 @@ void apply_gamma(double gamma_cur) {
 
   printf("gamma ---OK!\n");
 
-} // apply_gamma() end
+}  // apply_gamma() end
 void edge_enhance() {
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 5; j < 3293; j++) {
@@ -887,9 +890,9 @@ void edge_enhance() {
 
   printf("Edge Enhancement ---OK!\n");
 
-} // edge_enhance() end
-void rgb2bmp(char *name) {
-  FILE *fp;
+}  // edge_enhance() end
+void rgb2bmp(char* name) {
+  FILE* fp;
   int zero = 0;
   char filename[100];
   strcpy(filename, name);
@@ -902,39 +905,39 @@ void rgb2bmp(char *name) {
   int temp = 54 + 3264 * 2448 * 3;
   fwrite(&temp, 4, 1, fp);
 
-  for (int bmpcount = 0; bmpcount < 4; bmpcount++) // reserved
+  for (int bmpcount = 0; bmpcount < 4; bmpcount++)  // reserved
     fwrite(&zero, 1, 1, fp);
 
-  temp = 54; // start address of datas
+  temp = 54;  // start address of datas
   fwrite(&temp, 4, 1, fp);
 
-  temp = 40; // size of [0E-35]
+  temp = 40;  // size of [0E-35]
   fwrite(&temp, 1, 1, fp);
   fwrite(&zero, 1, 1, fp);
   fwrite(&zero, 1, 1, fp);
   fwrite(&zero, 1, 1, fp);
 
-  int width = 3264; // width
+  int width = 3264;
   fwrite(&width, 4, 1, fp);
 
-  int height = 2448; // height
+  int height = 2448;
   fwrite(&height, 4, 1, fp);
 
-  temp = 1; // color planes
+  temp = 1;  // color planes
   fwrite(&temp, 2, 1, fp);
 
-  temp = 24; // bits/pixel
+  temp = 24;  // bits/pixel
   fwrite(&temp, 2, 1, fp);
-  fwrite(&zero, 4, 1, fp); // Compression format
+  fwrite(&zero, 4, 1, fp);  // Compression format
 
-  temp = 23970816; // data size->3264*2448*3
+  temp = 23970816;  // data size->3264*2448*3
   fwrite(&temp, 4, 1, fp);
-  fwrite(&zero, 4, 1, fp); // width pixels/meter
-  fwrite(&zero, 4, 1, fp); // height pixels/meter
-  fwrite(&zero, 2, 1, fp); // color tables
+  fwrite(&zero, 4, 1, fp);
+  pixels / meter fwrite(&zero, 4, 1, fp);
+  pixels / meter fwrite(&zero, 2, 1, fp);  // color tables
   fwrite(&zero, 1, 1, fp);
   fwrite(&zero, 1, 1, fp);
-  fwrite(&zero, 4, 1, fp); // color indexes
+  fwrite(&zero, 4, 1, fp);  // color indexes
 
   // body
 
@@ -949,7 +952,7 @@ void rgb2bmp(char *name) {
   fclose(fp);
   printf("%s output finished.\n", name);
 
-} // rgb2bmp() end
+}  // rgb2bmp() end
 void CFA_to_krkb() {
   printf("start get color interpolation\n");
 
@@ -958,10 +961,8 @@ void CFA_to_krkb() {
 
   int i, j;
   // bilinear
-  for (i = 1; i < 2459; i = i + 2) // Height
-  {
-    for (j = 2; j < 3359; j = j + 2) // Width
-    {
+  for (i = 1; i < 2459; i = i + 2) {
+    for (j = 2; j < 3359; j = j + 2) {
       r[i][j] = (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] +
                  pic[i + 1][j + 1]) /
                 4;
@@ -971,30 +972,24 @@ void CFA_to_krkb() {
     }
   }
 
-  for (i = 1; i < 2459; i = i + 2) // Height
-  {
-    for (j = 1; j < 3359; j = j + 2) // Width
-    {
+  for (i = 1; i < 2459; i = i + 2) {
+    for (j = 1; j < 3359; j = j + 2) {
       r[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
       g[i][j] = pic[i][j];
       b[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
     }
   }
 
-  for (i = 2; i < 2459; i = i + 2) // Height
-  {
-    for (j = 2; j < 3359; j = j + 2) // Width
-    {
+  for (i = 2; i < 2459; i = i + 2) {
+    for (j = 2; j < 3359; j = j + 2) {
       r[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
       g[i][j] = pic[i][j];
       b[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
     }
   }
 
-  for (i = 2; i < 2459; i = i + 2) // Height
-  {
-    for (j = 1; j < 3359; j = j + 2) // Width
-    {
+  for (i = 2; i < 2459; i = i + 2) {
+    for (j = 1; j < 3359; j = j + 2) {
       r[i][j] = pic[i][j];
       g[i][j] =
           (pic[i - 1][j] + pic[i][j - 1] + pic[i][j + 1] + pic[i + 1][j]) / 4;
@@ -1004,18 +999,18 @@ void CFA_to_krkb() {
     }
   }
 
-  for (i = 1; i < 2459; i = i + 1) {   // height
-    for (j = 1; j < 3359; j = j + 1) { // width
+  for (i = 1; i < 2459; i = i + 1) {
+    for (j = 1; j < 3359; j = j + 1) {
       r[i][j] = 0;
       g[i][j] = 0;
       b[i][j] = 0;
-      if (i % 2 == 0) {   // even height
-        if (j % 2 == 0) { // g=> r b
+      if (i % 2 == 0) {    // even height
+        if (j % 2 == 0) {  // g=> r b
 
           r[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
           g[i][j] = pic[i][j];
           b[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
-        } else { // r=>g b
+        } else {  // r=>g b
 
           r[i][j] = pic[i][j];
           g[i][j] =
@@ -1025,8 +1020,8 @@ void CFA_to_krkb() {
                      pic[i + 1][j + 1]) /
                     4;
         }
-      } else {            // odd height
-        if (j % 2 == 0) { // b=>g r
+      } else {             // odd height
+        if (j % 2 == 0) {  // b=>g r
 
           r[i][j] = (pic[i - 1][j - 1] + pic[i + 1][j - 1] + pic[i - 1][j + 1] +
                      pic[i + 1][j + 1]) /
@@ -1035,7 +1030,7 @@ void CFA_to_krkb() {
               (pic[i][j - 1] + pic[i][j + 1] + pic[i - 1][j] + pic[i + 1][j]) /
               4;
           b[i][j] = pic[i][j];
-        } else { // g=> r b
+        } else {  // g=> r b
 
           r[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
           g[i][j] = pic[i][j];
@@ -1049,22 +1044,21 @@ void CFA_to_krkb() {
   // kr = g - r
   // kb = g - b
 
-  for (i = 0; i < 2459; i = i + 1) {   // width
-    for (j = 0; j < 3359; j = j + 1) { // height
+  for (i = 0; i < 2459; i = i + 1) {
+    for (j = 0; j < 3359; j = j + 1) {
       kr[i][j] = g[i][j] - r[i][j];
       kb[i][j] = g[i][j] - b[i][j];
     }
   }
   // horizontal and vertical edge-filters
-  // threshold don't know so use another method
   int dhg, dvg, dhb, dvb, dhr, dvr;
-  for (i = 3; i < 2458; i = i + 1) {   // height
-    for (j = 3; j < 3358; j = j + 1) { // width
-      if (i % 2 == 0) {                // even height
-        if (j % 2 == 0) {              // g=> kr kb
+  for (i = 3; i < 2458; i = i + 1) {
+    for (j = 3; j < 3358; j = j + 1) {
+      if (i % 2 == 0) {    // even height
+        if (j % 2 == 0) {  // g=> kr kb
           kb[i][j] = (kb[i + 1][j] + kb[i - 1][j]) / 2;
           kr[i][j] = (kr[i][j + 1] + kr[i][j - 1]) / 2;
-        } else { // r=>g kb
+        } else {  // r=>g kb
           dhg = abs(g[i][j + 1] - g[i][j - 1]) +
                 abs(2 * (kr[i][j]) - kr[i][j - 2] - kr[i][j + 2]);
           dvg = abs(g[i + 1][j] - g[i - 1][j]) +
@@ -1078,7 +1072,7 @@ void CFA_to_krkb() {
           } else {
             if (dhg > dvg) {
               g[i][j] = (g[i + 1][j] + g[i - 1][j]) / 2;
-            } else { //==
+            } else {  //==
               g[i][j] =
                   (g[i][j + 1] + g[i][j - 1] + g[i][j + 1] + g[i][j - 1]) / 4;
             }
@@ -1089,15 +1083,15 @@ void CFA_to_krkb() {
           } else {
             if (dhb > dvb) {
               kb[i][j] = (kb[i + 1][j + 1] + kb[i - 1][j - 1]) / 2;
-            } else { //==
+            } else {  //==
               kb[i][j] = (kb[i - 1][j + 1] + kb[i + 1][j - 1] +
                           kb[i + 1][j + 1] + kb[i - 1][j - 1]) /
                          4;
             }
           }
         }
-      } else {            // odd height
-        if (j % 2 == 0) { // b=>g kr
+      } else {             // odd height
+        if (j % 2 == 0) {  // b=>g kr
           dhg = abs(g[i][j + 1] - g[i][j - 1]) +
                 abs(2 * (kb[i][j]) - kb[i][j - 2] - kb[i][j + 2]);
           dvg = abs(g[i + 1][j] - g[i - 1][j]) +
@@ -1111,7 +1105,7 @@ void CFA_to_krkb() {
           } else {
             if (dhg > dvg) {
               g[i][j] = (g[i + 1][j] + g[i - 1][j]) / 2;
-            } else { //==
+            } else {  //==
               g[i][j] =
                   (g[i][j + 1] + g[i][j - 1] + g[i][j + 1] + g[i][j - 1]) / 4;
             }
@@ -1122,13 +1116,13 @@ void CFA_to_krkb() {
           } else {
             if (dhr > dvr) {
               kr[i][j] = (kr[i + 1][j + 1] + kr[i - 1][j - 1]) / 2;
-            } else { //==
+            } else {  //==
               kr[i][j] = (kr[i - 1][j + 1] + kr[i + 1][j - 1] +
                           kr[i + 1][j + 1] + kr[i - 1][j - 1]) /
                          4;
             }
           }
-        } else { // g=> kr kb
+        } else {  // g=> kr kb
           kb[i][j] = (kb[i][j + 1] + kb[i][j - 1]) / 2;
           kr[i][j] = (kr[i + 1][j] + kr[i - 1][j]) / 2;
         }
@@ -1136,8 +1130,8 @@ void CFA_to_krkb() {
     }
   }
   // back rgb domain
-  for (i = 0; i < 2459; i = i + 1) {   // width
-    for (j = 0; j < 3359; j = j + 1) { // height
+  for (i = 0; i < 2459; i = i + 1) {
+    for (j = 0; j < 3359; j = j + 1) {
       r[i][j] = g[i][j] - kr[i][j];
       b[i][j] = g[i][j] - kb[i][j];
     }
@@ -1146,10 +1140,8 @@ void CFA_to_krkb() {
 void getColor() {
   int i, j;
   // 1, 1
-  for (i = 1; i < 2459; i = i + 2) // Height
-  {
-    for (j = 2; j < 3359; j = j + 2) // Width
-    {
+  for (i = 1; i < 2459; i = i + 2) {
+    for (j = 2; j < 3359; j = j + 2) {
       r[i][j] = (pic[i - 1][j - 1] + pic[i - 1][j + 1] + pic[i + 1][j - 1] +
                  pic[i + 1][j + 1]) /
                 4;
@@ -1161,10 +1153,8 @@ void getColor() {
   printf("1, 1 ---OK!\n");
 
   // 2, 1
-  for (i = 1; i < 2459; i = i + 2) // Height
-  {
-    for (j = 1; j < 3359; j = j + 2) // Width
-    {
+  for (i = 1; i < 2459; i = i + 2) {
+    for (j = 1; j < 3359; j = j + 2) {
       r[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
       g[i][j] = pic[i][j];
       b[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
@@ -1173,10 +1163,8 @@ void getColor() {
   printf("2, 1 ---OK!\n");
 
   // 1, 2
-  for (i = 2; i < 2459; i = i + 2) // Height
-  {
-    for (j = 2; j < 3359; j = j + 2) // Width
-    {
+  for (i = 2; i < 2459; i = i + 2) {
+    for (j = 2; j < 3359; j = j + 2) {
       r[i][j] = (pic[i][j - 1] + pic[i][j + 1]) / 2;
       g[i][j] = pic[i][j];
       b[i][j] = (pic[i - 1][j] + pic[i + 1][j]) / 2;
@@ -1185,10 +1173,8 @@ void getColor() {
   printf("1, 2 ---OK!\n");
 
   // 2, 2
-  for (i = 2; i < 2459; i = i + 2) // Height
-  {
-    for (j = 1; j < 3359; j = j + 2) // Width
-    {
+  for (i = 2; i < 2459; i = i + 2) {
+    for (j = 1; j < 3359; j = j + 2) {
       r[i][j] = pic[i][j];
       g[i][j] =
           (pic[i - 1][j] + pic[i][j - 1] + pic[i][j + 1] + pic[i + 1][j]) / 4;
@@ -1201,10 +1187,8 @@ void getColor() {
 }
 void NearestNeighborInterpolation() {
   int i, j;
-  for (i = 1; i < 2459; i = i + 2) // Height
-  {
-    for (j = 2; j < 3359; j = j + 2) // Width
-    {
+  for (i = 1; i < 2459; i = i + 2) {
+    for (j = 2; j < 3359; j = j + 2) {
       r[i][j] = pic[i - 1][j + 1];
       g[i][j] = pic[i][j - 1];
       b[i][j] = pic[i][j];
@@ -1212,10 +1196,8 @@ void NearestNeighborInterpolation() {
   }
   printf("1, 1 ---OK!\n");
 
-  for (i = 1; i < 2459; i = i + 2) // Height
-  {
-    for (j = 1; j < 3359; j = j + 2) // Width
-    {
+  for (i = 1; i < 2459; i = i + 2) {
+    for (j = 1; j < 3359; j = j + 2) {
       r[i][j] = pic[i - 1][j];
       g[i][j] = pic[i][j];
       b[i][j] = pic[i][j - 1];
@@ -1223,10 +1205,8 @@ void NearestNeighborInterpolation() {
   }
   printf("2, 1 ---OK!\n");
 
-  for (i = 2; i < 2459; i = i + 2) // Height
-  {
-    for (j = 2; j < 3359; j = j + 2) // Width
-    {
+  for (i = 2; i < 2459; i = i + 2) {
+    for (j = 2; j < 3359; j = j + 2) {
       r[i][j] = pic[i][j + 1];
       g[i][j] = pic[i][j];
       b[i][j] = pic[i + 1][j];
@@ -1234,10 +1214,8 @@ void NearestNeighborInterpolation() {
   }
   printf("1, 2 ---OK!\n");
 
-  for (i = 2; i < 2459; i = i + 2) // Height
-  {
-    for (j = 1; j < 3359; j = j + 2) // Width
-    {
+  for (i = 2; i < 2459; i = i + 2) {
+    for (j = 1; j < 3359; j = j + 2) {
       r[i][j] = pic[i][j];
       g[i][j] = pic[i][j - 1];
       b[i][j] = pic[i + 1][j - 1];
@@ -1250,11 +1228,8 @@ void RGB_2HSV_2RGB(double change) {
   int h;
   double s, v;
 
-  for (int i = 1; i < 2459; i++) // Height
-  {
-
-    for (int j = 1; j < 3359; j++) // Width
-    {
+  for (int i = 1; i < 2459; i++) {
+    for (int j = 1; j < 3359; j++) {
       //
       //   Calculate HSV from RGB
       //   Hue is in degrees
@@ -1274,8 +1249,7 @@ void RGB_2HSV_2RGB(double change) {
       s = 0;
       v = themax;
 
-      if (themax > 0)
-        s = delta / themax;
+      if (themax > 0) s = delta / themax;
 
       if (delta > 0) {
         if (themax == r[i][j] && themax != g[i][j])
@@ -1314,51 +1288,48 @@ void RGB_2HSV_2RGB(double change) {
 
       f = h - i;
 
-      if (!(i & 1))
-        f = 1 - f; // if i is even
+      if (!(i & 1)) f = 1 - f;  // if i is even
 
       m = v * (1 - s);
       n = v * (1 - s * f);
 
       switch (i) {
-      case 6:
-      case 0:
-        r[i][j] = v;
-        g[i][j] = n;
-        b[i][j] = m;
-        break;
-      case 1:
-        r[i][j] = n;
-        g[i][j] = v;
-        b[i][j] = m;
-        break;
-      case 2:
-        r[i][j] = m;
-        g[i][j] = v;
-        b[i][j] = n;
-        break;
-      case 3:
-        r[i][j] = m;
-        g[i][j] = n;
-        b[i][j] = v;
-        break;
-      case 4:
-        r[i][j] = n;
-        g[i][j] = m;
-        b[i][j] = v;
-        break;
-      case 5:
-        r[i][j] = v;
-        g[i][j] = m;
-        b[i][j] = n;
-        break;
+        case 6:
+        case 0:
+          r[i][j] = v;
+          g[i][j] = n;
+          b[i][j] = m;
+          break;
+        case 1:
+          r[i][j] = n;
+          g[i][j] = v;
+          b[i][j] = m;
+          break;
+        case 2:
+          r[i][j] = m;
+          g[i][j] = v;
+          b[i][j] = n;
+          break;
+        case 3:
+          r[i][j] = m;
+          g[i][j] = n;
+          b[i][j] = v;
+          break;
+        case 4:
+          r[i][j] = n;
+          g[i][j] = m;
+          b[i][j] = v;
+          break;
+        case 5:
+          r[i][j] = v;
+          g[i][j] = m;
+          b[i][j] = n;
+          break;
       }
 
-      while (h < 0)
-        h += 360;
+      while (h < 0) h += 360;
 
-      while (h > 360)
-        h -= 360;
+      while (h > 360) h -= 360;
 
       if (h < 120) {
         r[i][j] = (120 - h) / 60;
@@ -1384,7 +1355,7 @@ void RGB_2HSV_2RGB(double change) {
     }
   }
 }
-void RGBtoHSV(int r, int g, int b, double &h, double &s, double &v) {
+void RGBtoHSV(int r, int g, int b, double& h, double& s, double& v) {
   int themin, themax, delta;
   themin = std::min({r, g, b});
   themax = std::max({r, g, b});
@@ -1404,11 +1375,10 @@ void RGBtoHSV(int r, int g, int b, double &h, double &s, double &v) {
       h = 4 + (r - g) / (double)delta;
 
     h *= 60;
-    if (h < 0)
-      h += 360;
+    if (h < 0) h += 360;
   }
 }
-void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
+void HSVtoRGB(double h, double s, double v, int& r, int& g, int& b) {
   int i;
   double f, p, q, t;
 
@@ -1425,36 +1395,36 @@ void HSVtoRGB(double h, double s, double v, int &r, int &g, int &b) {
   t = v * (1 - s * (1 - f));
 
   switch (i) {
-  case 0:
-    r = round(v * 255);
-    g = round(t * 255);
-    b = round(p * 255);
-    break;
-  case 1:
-    r = round(q * 255);
-    g = round(v * 255);
-    b = round(p * 255);
-    break;
-  case 2:
-    r = round(p * 255);
-    g = round(v * 255);
-    b = round(t * 255);
-    break;
-  case 3:
-    r = round(p * 255);
-    g = round(q * 255);
-    b = round(v * 255);
-    break;
-  case 4:
-    r = round(t * 255);
-    g = round(p * 255);
-    b = round(v * 255);
-    break;
-  default:
-    r = round(v * 255);
-    g = round(p * 255);
-    b = round(q * 255);
-    break;
+    case 0:
+      r = round(v * 255);
+      g = round(t * 255);
+      b = round(p * 255);
+      break;
+    case 1:
+      r = round(q * 255);
+      g = round(v * 255);
+      b = round(p * 255);
+      break;
+    case 2:
+      r = round(p * 255);
+      g = round(v * 255);
+      b = round(t * 255);
+      break;
+    case 3:
+      r = round(p * 255);
+      g = round(q * 255);
+      b = round(v * 255);
+      break;
+    case 4:
+      r = round(t * 255);
+      g = round(p * 255);
+      b = round(v * 255);
+      break;
+    default:
+      r = round(v * 255);
+      g = round(p * 255);
+      b = round(q * 255);
+      break;
   }
 }
 void sharpen(double factor) {
@@ -1462,9 +1432,9 @@ void sharpen(double factor) {
   int height = HEIGHT;
   int kernel[3][3] = {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}};
 
-  int **temp_r = new int *[height];
-  int **temp_g = new int *[height];
-  int **temp_b = new int *[height];
+  int** temp_r = new int*[height];
+  int** temp_g = new int*[height];
+  int** temp_b = new int*[height];
   for (int i = 0; i < height; ++i) {
     temp_r[i] = new int[width];
     temp_g[i] = new int[width];
@@ -1510,41 +1480,47 @@ void sharpen(double factor) {
 
   printf("sharpen ---OK!\n");
 }
-void findClosestColor(double r, double g, double b, double* closestR, double* closestG, double* closestB) {
-    double inputH, inputS, inputV;
-    RGBtoHSV(r, g, b, inputH, inputS, inputV);
+void findClosestColor(double r, double g, double b, double* closestR,
+                      double* closestG, double* closestB) {
+  double inputH, inputS, inputV;
+  RGBtoHSV(r, g, b, inputH, inputS, inputV);
 
-    double minDistance = std::numeric_limits<double>::max();
-    for (int i = 0; i < 24; i++) {
-        double idealH, idealS, idealV;
-        RGBtoHSV(idealColors[i][0], idealColors[i][1], idealColors[i][2], idealH, idealS, idealV);
+  double minDistance = std::numeric_limits<double>::max();
+  for (int i = 0; i < 24; i++) {
+    double idealH, idealS, idealV;
+    RGBtoHSV(idealColors[i][0], idealColors[i][1], idealColors[i][2], idealH,
+             idealS, idealV);
 
-        double dh = std::min(std::abs(idealH - inputH), 360 - std::abs(idealH - inputH)); // Circular distance for hue
-        double ds = idealS - inputS;
-        double dv = idealV - inputV;
-        double distance = dh * dh + ds * ds + dv * dv;
+    double dh =
+        std::min(std::abs(idealH - inputH),
+                 360 - std::abs(idealH - inputH));  // Circular distance for hue
+    double ds = idealS - inputS;
+    double dv = idealV - inputV;
+    double distance = dh * dh + ds * ds + dv * dv;
 
-        if (distance < minDistance) {
-            minDistance = distance;
-            *closestR = idealColors[i][0];
-            *closestG = idealColors[i][1];
-            *closestB = idealColors[i][2];
-        }
+    if (distance < minDistance) {
+      minDistance = distance;
+      *closestR = idealColors[i][0];
+      *closestG = idealColors[i][1];
+      *closestB = idealColors[i][2];
     }
+  }
 }
 void colorCorrection() {
   for (int i = 0; i < 24; i++) {
     double h, s, v;
     RGBtoHSV(idealColors[i][0], idealColors[i][1], idealColors[i][2], h, s, v);
   }
-  // Convert the image to HSV and adjust only the hue to be closer to ideal colors by a factor of change
-  for (int i = 0; i < 2459; i++) { // Adjust loop to start from 0
-    for (int j = 0; j < 3359; j++) { // Adjust loop to start from 0
+  // Convert the image to HSV and adjust only the hue to be closer to ideal
+  // colors by a factor of change
+  for (int i = 0; i < 2459; i++) {
+    for (int j = 0; j < 3359; j++) {
       double h, s, v;
       RGBtoHSV(r[i][j], g[i][j], b[i][j], h, s, v);
 
       double closestR, closestG, closestB;
-      findClosestColor(r[i][j], g[i][j], b[i][j], &closestR, &closestG, &closestB);
+      findClosestColor(r[i][j], g[i][j], b[i][j], &closestR, &closestG,
+                       &closestB);
 
       double closestH, closestS, closestV;
       RGBtoHSV(closestR, closestG, closestB, closestH, closestS, closestV);
@@ -1558,12 +1534,11 @@ void colorCorrection() {
   }
   printf("colorCorrection --- OK!\n");
 }
-void gaussianBlur(){
+void gaussianBlur() {
   // 3x3 kernel
-  double kernel[3][3] = {
-      {1.0 / 16, 2.0 / 16, 1.0 / 16},
-      {2.0 / 16, 4.0 / 16, 2.0 / 16},
-      {1.0 / 16, 2.0 / 16, 1.0 / 16}};
+  double kernel[3][3] = {{1.0 / 16, 2.0 / 16, 1.0 / 16},
+                         {2.0 / 16, 4.0 / 16, 2.0 / 16},
+                         {1.0 / 16, 2.0 / 16, 1.0 / 16}};
   int width = WIDTH;
   int height = HEIGHT;
   for (int y = 1; y < height - 1; ++y) {
@@ -1585,7 +1560,6 @@ void gaussianBlur(){
     }
   }
   printf("gaussianBlur --- OK!\n");
-
 }
 void changeVibrance(double factor) {
   for (int i = 0; i < 2459; i++) {
@@ -1613,19 +1587,21 @@ void changeHSV(double hChange, double sChange, double vChange) {
       v = std::clamp(v * vChange, 0.0, 1.0);
 
       // Ensure hue wraps correctly between 0 and 360
-      if (h >= 360.0) h -= 360.0;
-      else if (h < 0) h += 360.0;
+      if (h >= 360.0)
+        h -= 360.0;
+      else if (h < 0)
+        h += 360.0;
 
       HSVtoRGB(h, s, v, r[i][j], g[i][j], b[i][j]);
     }
   }
- printf("changeHSV --- OK!\n");
+  printf("changeHSV --- OK!\n");
 }
 void corrections() {
   const int width = 2459;
   const int height = 3359;
   const int pixelCount = width * height;
-  const float thresholdPercentage = 0.02; 
+  const float thresholdPercentage = 0.02;
 
   // Initialize histograms
   std::vector<int> rHistogram(256, 0), gHistogram(256, 0), bHistogram(256, 0);
@@ -1695,11 +1671,10 @@ void corrections() {
   printf("corrections --- OK!\n");
 }
 
-
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   for (int k = 1; k < argc; k++) {
-    FILE *fp;
-    fp = fopen(argv[k], "rb"); // Open file
+    FILE* fp;
+    fp = fopen(argv[k], "rb");
     fseek(fp, 862144, SEEK_SET);
 
     for (int i = 0; i < HEIGHT; i++) {
@@ -1710,7 +1685,7 @@ int main(int argc, char *argv[]) {
         fread(pic[i] + j, 1, 1, fp);
       }
     }
-    fclose(fp); // Close file
+    fclose(fp);
     OB();
     WB();
 
